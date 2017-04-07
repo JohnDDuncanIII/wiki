@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<base href="http://localhost:8080/">
+<link rel="stylesheet" href="css/style.css">
+<title>{{.Title}}</title>
+</head>
+<h1>{{.Title}}</h1>
+
+<div id="entry">
+{{printf "%s" .Body}}
+<div class="forms">
+<a href="/edit/{{.Title}}"><button>edit</button></a>
+<form action="/remove/{{.Title}}" method="POST">
+<input type="submit" value="remove">
+</form>
+</div>
+</div>
+{{ range $key, $value := .CmtArr }}{{if $value}}
+<div><strong>{{ $key }}</strong>: {{ $value }}
+<form action="/removecomment/{{$.Title}}" method="POST">
+<input type="hidden" name="comment_num" value="{{$key}}">
+<input type="submit" value="remove">
+</form>
+</div>{{ end }}{{ end }}
+<form action="/comment/{{.Title}}" method="POST">
+<div><textarea name="comment" rows="15" cols="35"></textarea></div>
+<div class="forms"><input type="submit" value="post comment"></div>
+</form>
+
+<img class="flourish" src="css/img/gem.gif">
