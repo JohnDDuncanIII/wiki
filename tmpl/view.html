@@ -3,6 +3,10 @@
 <meta charset="utf-8">
 <base href="http://localhost:8080/">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/face.css">
+<script src="face/main.js"></script>
+<script src="face/md5-impl.js"></script>
+<script src="face/xface.js"></script>
 <title>{{.Title}}</title>
 </head>
 <h1>{{.Title}}</h1>
@@ -11,21 +15,34 @@
 {{printf "%s" .Body}}
 <div class="forms">
 <a href="/edit/{{.Title}}"><button>edit</button></a>
-<form action="/remove/{{.Title}}" method="POST">
-<input type="submit" value="remove">
-</form>
+<a href="/remove/{{.Title}}"><button>remove</button></a>
 </div>
 </div>
-{{ range $key, $value := .CmtArr }}{{if $value}}
-<div><strong>{{ $key }}</strong>: {{ $value }}
+
+<div id="comments">{{ range $key, $value := .CommentsArr }}{{ if $value.Ip}}
+<div id="comment{{$key}}" class="comment">
+<div id="facesBox{{$key}}" class="facesBox">{{ range $k, $picon := .SearchPicons .Email }}{{ $picon }}{{end}}</div>
+<p style="margin-top:0" align="left"> on {{$value.Epoch}}, {{ if $value.Homepage }}<a href="{{$value.Homepage}}" target="_new">{{$value.Name}}</a>{{ else }}{{$value.Name}}{{ end }} {{if $value.Email}}[<a href="mailto://{{$value.Email}}" rel="nofollow">e-mail</a>]{{ end }} said</p>
+{{if .Email}}<script>doGravatar({{.Email}},{{$key}});</script>{{end}}{{if .Xface}}<script>doXFace({{.Xface}},{{$key}});</script>{{end}}{{if .Face}}<script>doFace({{.Face}},{{$key}});</script>{{end}}{{if .Comment}}<p>{{$value.Comment}}</p>{{end}}
 <form action="/removecomment/{{$.Title}}" method="POST">
 <input type="hidden" name="comment_num" value="{{$key}}">
 <input type="submit" value="remove">
 </form>
 </div>{{ end }}{{ end }}
+</div>
+
+<div id="comment">
 <form action="/comment/{{.Title}}" method="POST">
+<input type="text" name="name" placeholder="Name">
+<input type="text" name="email" placeholder="Email">
+<input type="text" name="xface" placeholder="X-Face">
+<input type="text" name="face" placeholder="Face">
+<input type="text" name="homepage" placeholder="Homepage">
 <div><textarea name="comment" rows="15" cols="35"></textarea></div>
 <div class="forms"><input type="submit" value="post comment"></div>
 </form>
+</div>
+
+<hr>
 
 <img class="flourish" src="css/img/gem.gif">

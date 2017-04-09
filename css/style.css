@@ -1,11 +1,13 @@
 div {
     position: relative;
-    display: table;
     border: 3px double black;
-    margin-top: 2px;
     padding: 3px;
-    vertical-align: top;
-    min-width: 50px;
+    max-width: 600px;
+    display: table;
+}
+
+div:not(:first-of-type) {
+    margin-top: 2px;
 }
 
 html {
@@ -25,6 +27,7 @@ body {
     body {
 	margin-left: 7%;
 	margin-top: 16px;
+	margin-bottom: 16px;
 	margin-right: 7%;
 	padding-left: 7%;
 	padding-right: 7%;
@@ -40,26 +43,63 @@ body {
 	padding-right:2pt;
     }
 }
+
 h1 {
     display: table;
     border-bottom: 1px dotted black;
     margin-left: auto;
     margin-right: auto;
 }
+
 hr { border: 1px dotted black; }
 
-#entry {
-    width: 600px;
+.comment {
+    display: block;
 }
 
-input[type="text"], input[type="date"] {
-    border: 3px double black;
-    margin-bottom: 1px;
+.flourish {
+    display: table;
+    margin: 0 auto;
+    margin-top:5px;
 }
 
-input[type="button"], input[type="submit"], button { border: 3px double black; }
+.raised {
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    padding: 1px;
+    background: #fff;
+    background-image: none;
+    background-image: url(data:image/gif;base64,R0lGODdhAwADAIABAPv7+////ywAAAAAAwADAAACA0RuWAA7);
+    cursor: pointer;
+}
 
-input[type="button"]:hover, input[type="submit"]:hover, button:hover { background-color: #eaeaea; }
+.forms {
+    border: none;
+}
+
+.forms * {
+    display: inline-block;
+    vertical-align: top;
+}
+
+/* input fields */
+select, textarea, input[type="text"], input[type="date"], input[type="button"], input[type="submit"], button {
+    border: 1px double black;
+    margin-bottom: 3px;
+    display: table;
+    box-shadow: 2px 2px 0px -1px black;
+}
+
+select:hover, select:focus, textarea:hover, textarea:focus, input[type="text"]:hover, input[type="text"]:focus, input[type="date"]:hover, input[type="date"]:focus, input[type="button"]:hover, input[type="submit"]:hover, button:hover {
+    border-color: blue;
+}
+
+input[type="button"]:active, input[type="submit"]:active, button:active {
+    box-shadow: none;
+    margin-left: 1px;
+    margin-top: 1px;
+}
 
 /* range */
 input[type=range] { -webkit-appearance: none; }
@@ -130,12 +170,11 @@ input[type=range]::-ms-thumb {
 input[type=range]:focus::-ms-fill-lower { background: dodgerblue; }
 input[type=range]:focus::-ms-fill-upper { background: dodgerblue; }
 
-.myCheckbox, .myRadio { display: inline-block; }
 /* checkbox */
+.myCheckbox, .myRadio { display: inline-block; }
 .myCheckbox input {
     display: none;
-    // Better than display: none for accessibility reasons
-				 position: relative;
+    position: relative;
     z-index: -9999;
 }
 
@@ -149,6 +188,7 @@ input[type=range]:focus::-ms-fill-upper { background: dodgerblue; }
 
 .myCheckbox input:checked + span { background: url("img/on.gif"); }
 
+/* radio buttons */
 .myRadio input {
     display: none;
     position: relative;
@@ -165,40 +205,16 @@ input[type=range]:focus::-ms-fill-upper { background: dodgerblue; }
 
 .myRadio input:checked + span { background: url("img/rad_on.gif"); }
 
+/* disable anti-aliasing */
 img, span  {
     image-rendering: -webkit-optimize-contrast; /* Chrome (and eventually Safari) */
     image-rendering: pixelated; /* Chrome */
-    image-rendering: optimizeSpeed;             /* STOP SMOOTHING, GIVE ME SPEED  */
-    image-rendering: -moz-crisp-edges;          /* Firefox                        */
-    image-rendering: -o-crisp-edges;            /* Opera                          */
-    image-rendering: optimize-contrast;         /* CSS3 Proposed                  */
-    -ms-interpolation-mode: nearest-neighbor;   /* IE8+                           */
+    image-rendering: optimizeSpeed;		/* STOP SMOOTHING, GIVE ME SPEED  */
+    image-rendering: -moz-crisp-edges;		/* Firefox			  */
+    image-rendering: -o-crisp-edges;		/* Opera			  */
+    image-rendering: optimize-contrast;		/* CSS3 Proposed		  */
+    -ms-interpolation-mode: nearest-neighbor;	/* IE8+				  */
 }
 input[type=range]::-ms-thumb { -ms-interpolation-mode: nearest-neighbor; }
 input[type=range]::-moz-range-thumb { image-rendering: -moz-crisp-edges; }
 input[type=range]::-webkit-slider-thumb { image-rendering: pixelated; }
-
-.flourish {
-    display: table;
-    margin: 0 auto;
-    margin-top:5px;
-}
-
-.raised {
-    position: absolute;
-    top: -10px;
-    left: 12px;
-    padding: 1px;
-    background: #fff;
-    background-image: none;
-    background-image: url(data:image/gif;base64,R0lGODdhAwADAIABAPv7+////ywAAAAAAwADAAACA0RuWAA7);
-    cursor: pointer;
-}
-
-.forms {
-    border: none;
-}
-
-.forms * {
-    display: inline-block;
-}
