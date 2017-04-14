@@ -10,10 +10,7 @@
 }
 .face:last-child { border-right: none; }
 .facesBox {
-    border: 3px double black;
-    display: inline-block;
     line-height: 0;
     float: right;
-    margin-left: 5px;
     padding: 0;
 }

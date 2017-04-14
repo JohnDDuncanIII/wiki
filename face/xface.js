@@ -617,3 +617,19 @@ function FaceURL(asFace, aoComputedStyle)
 
     return "data:image/png;base64," + btoa(goPNGFace.URL(F));
 }
+
+function doXFace(xFace, gCount){
+    var xFaceCache = new Array();
+    var xFaceImg = document.createElement("img");
+    xFaceImg.id="xface"+gCount;
+    xFaceImg.setAttribute("class", "face xface");
+    xFaceImg.title = "X-Face";
+
+    xFace = xFace.replace(/ /g, "");
+    var koComputedStyle = window.getComputedStyle(xFaceImg, null);
+    if (xFaceCache[xFace] == null) {
+	xFaceCache[xFace] = FaceURL(xFace, koComputedStyle);
+    }
+    xFaceImg.setAttribute("src", xFaceCache[xFace]);
+    document.getElementById("facesBox"+gCount).insertBefore(xFaceImg, document.getElementById("facesBox"+gCount).firstChild);
+}

@@ -4,12 +4,18 @@
 
 package main
 
-import (
+import ( // https://gowebexamples.github.io/password-hashing/
 	"bytes"
+	"crypto/md5"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/ioutil"
 	"net/http"
+	"net/mail"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -28,18 +34,19 @@ type CommentType struct {
 	Ip string
 	Epoch string
 	Comment template.HTML
+	EmailMD5 string
+	Favatar string
 }
 
 type Page struct {
 	Title string
-	Body  string
+	Body string
 	Comments int
-	CmtArr []string
-	CommentsArr []CommentType
+	CommentsArr map[int]*CommentType
 }
 
 func (p *Page) save() error {
-	path :=  "data/" + p.Title + "/"
+	path :=  "entries/" + p.Title + "/"
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		os.Mkdir(path, os.ModePerm)
 	}
@@ -48,8 +55,8 @@ func (p *Page) save() error {
 }
 
 func (p *Page) saveComment(outStr string) error {
-	path :=  "data/" + p.Title + "/comments/"
-	filename_n := "data/" + p.Title + "/comments/num.txt"
+	path :=  "entries/" + p.Title + "/comments/"
+	filename_n := "entries/" + p.Title + "/comments/num.txt"
 	num_comments, _ := ioutil.ReadFile(filename_n)
 	comments, _ := strconv.Atoi(string(num_comments))
 
@@ -65,42 +72,45 @@ func (p *Page) saveComment(outStr string) error {
 	}
 
 	comments++
-	fmt.Println(outStr)
 	ioutil.WriteFile(filename_n, []byte(strconv.Itoa(comments)), 0600)
 	filename = path + strconv.Itoa(comments) + ".txt"
 	return ioutil.WriteFile(filename, []byte(outStr), 0600)
 }
 
 func (p *Page) remove() error {
-	path :=  "data/" + p.Title + "/"
+	path :=  "entries/" + p.Title + "/"
 	return os.RemoveAll(path)
 }
 
 func (p *Page) removeComment(cmt_num string) error {
-	path :=  "data/" + p.Title + "/comments/" + cmt_num + ".txt"
+	path :=  "entries/" + p.Title + "/comments/" + cmt_num + ".txt"
 	return os.Remove(path)
 }
 
 func loadPage(title string) (*Page, error) {
-	if _, err := os.Stat("data/"); os.IsNotExist(err) {
-		os.Mkdir("data", os.ModePerm)
+	if _, err := os.Stat("entries/"); os.IsNotExist(err) {
+		os.Mkdir("entries", os.ModePerm)
 	}
-	filename := "data/" + title + "/" + title + ".txt"
-	b_body, err := ioutil.ReadFile(filename)
+	filename := "entries/" + title + "/" + title + ".txt"
+	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	body := string(b_body)
+	/*body_src := template.HTMLEscapeString(string(b_body))
+	body := template.HTML(ParseEmoticons(body_src))*/
+	body := string(b)
 
-	cn_filename := "data/" + title + "/comments/num.txt"
+	cn_filename := "entries/" + title + "/comments/num.txt"
 	num_comments, err := ioutil.ReadFile(cn_filename)
 	int_comments, _ := strconv.Atoi(string(num_comments))
-	var commentsArr []CommentType
+
+	m := make(map[int]*CommentType)
 
 	for i := 0; i <= int_comments; i++ {
-		dat, err := ioutil.ReadFile("data/"+title+"/comments/"+strconv.Itoa(i)+".txt")
+		dat, err := ioutil.ReadFile("entries/"+title+"/comments/"+strconv.Itoa(i)+".txt")
 		if(err == nil) {
-			dat_arr := strings.Split(string(dat), "¦")
+			//dat_arr := strings.Split(string(dat), "¦")
+			dat_arr := strings.Split(string(dat), "\n")
 
 			name := dat_arr[0]
 			ip := dat_arr[1]
@@ -114,30 +124,45 @@ func loadPage(title string) (*Page, error) {
 			comment := template.HTML(ParseEmoticons(comment_src))
 			face := dat_arr[6]
 			xface := dat_arr[7]
+			md5 := dat_arr[8]
+			favatar := dat_arr[9]
 
-			c := &CommentType{Name: name, Email: email, Xface: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: comment}
-			commentsArr = append(commentsArr, *c)
-		} else {
-			commentsArr = append(commentsArr, CommentType{})
+			c := &CommentType{Name: name, Email: email, Xface: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: comment, EmailMD5: md5, Favatar: favatar}
+			m[i] = c;
 		}
 	}
 
-	return &Page{Title: title, Body: body, CommentsArr: commentsArr}, nil
+	return &Page{Title: title, Body: body, CommentsArr: m}, nil
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
-	if err != nil {
-		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
-		return
-	}
 	var output bytes.Buffer
-	err = templates.ExecuteTemplate(&output, "view.html", p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	if title != "" {
+		//fmt.Println(r.URL.Path[len("/entries/"):])
+		p, err := loadPage(title)
+		if err != nil {
+			http.Redirect(w, r, "/edit/"+title, http.StatusFound)
+			return
+		}
+		err = templates.ExecuteTemplate(&output, "view.html", p)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		var entries []string
+		var path = "entries/"
+		files, _ := ioutil.ReadDir("./"+path)
+		for _, f := range files {
+			entries = append(entries, f.Name())
+		}
 
+		err := templates.ExecuteTemplate(&output, "entries.html", entries)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 	w.Write(output.Bytes())
 }
 
@@ -146,83 +171,239 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 	if err != nil {
 		p = &Page{Title: title}
 	}
-	err = templates.ExecuteTemplate(w, "edit.html", p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if title != "" {
+		err = templates.ExecuteTemplate(w, "edit.html", p)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		http.Redirect(w, r, "/edit/main", http.StatusFound)
 	}
+
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
-	body := r.FormValue("body")
-	//p := &Page{Title: title, Body: []byte(body)}
-	p := &Page{Title: title, Body: body}
-	err := p.save()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if title != "" {
+		body := r.FormValue("body")
+
+		//p := &Page{Title: title, Body: []byte(body)}
+		p := &Page{Title: title, Body: body}
+		err := p.save()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/entries/"+title, http.StatusFound)
+	} else {
+		http.Redirect(w, r, "/entries/main", http.StatusFound)
 	}
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
 func removeHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p := &Page{Title: title}
-	err := p.remove()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if title != "" {
+		p := &Page{Title: title}
+		err := p.remove()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
-	http.Redirect(w, r, "/view/main", http.StatusFound)
+
+	http.Redirect(w, r, "/entries/main", http.StatusFound)
 }
 
-// name¦ip¦email¦homepage¦unixtime¦comment¦face¦xface¦
+// name ip email homepage unixtime comment face xface emailMD5 favatar
 func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
-	name := r.FormValue("name")
-	ip := r.RemoteAddr
-	email := r.FormValue("email")
-	homepage := r.FormValue("homepage")
-	epoch := strconv.Itoa(int(time.Now().Unix()))
-	comment := r.FormValue("comment")
-	face := r.FormValue("face")
-	xface := r.FormValue("xface")
+	if title != "" {
+		name := r.FormValue("name")
+		// default name
+		if name == "" {
+			name = "Anonymous"
+		}
 
-	if name == "" {
-		name = "Anonymous"
+		ip := r.RemoteAddr
+
+		email := r.FormValue("email")
+		// email validation
+		e, err := mail.ParseAddress(email)
+		if err != nil {
+			if(err.Error() != "mail: no address") {
+				http.Error(w, err.Error() + "\n" + "malformed email address", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			email = e.Address
+		}
+
+		homepage := r.FormValue("homepage")
+		// homepage URL validation & favatar parsing
+		_, err = url.ParseRequestURI(homepage)
+		if err != nil {
+			if err.Error() != "parse : empty url" {
+				http.Error(w, err.Error() + "\n" + "malformed homepage url", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		var favicon string
+
+		if len(homepage) > 0 {
+			if homepage[len(homepage)-1:] != "/" {
+				homepage += "/"
+			}
+			res, getErr := http.Get(homepage)
+			var html string
+			if getErr != nil {
+				http.Error(w, getErr.Error() + "\n" + "could not parse homepage url: " + homepage, http.StatusInternalServerError)
+				return
+			}
+
+			respBody, readErr := ioutil.ReadAll(res.Body)
+			res.Body.Close()
+			html = string(respBody)
+			if readErr != nil {
+				http.Error(w, readErr.Error() + "\n" + "could not parse page", http.StatusInternalServerError)
+				return
+			}
+
+			regex1 := regexp.MustCompile(`<link (?:[^>\s]*)rel="(?:[S|s]hortcut|[I|i]con|[S|s]hortcut [I|i]con|mask-icon|apple-touch-icon-precomposed)"(?:[^>]*)href="*([^"\s]+)"*\s*(?:[^>]*)>`)
+			regex2 := regexp.MustCompile(`<link (?:[^>\s]*)href="*([^"\s]+)"*\s*(?:[^>\s]*)rel="(?:[S|s]hortcut|[I|i]con|[S|s]hortcut [I|i]con|mask-icon|apple-touch-icon-precomposed)"(?:[^>\s]*)>`)
+
+			result_slice1 := regex1.FindStringSubmatch(html)
+			result_slice2 := regex2.FindStringSubmatch(html)
+			if len(result_slice1) > 0 {
+				favicon = result_slice1[1]
+			} else if len(result_slice2) > 0 {
+				favicon = result_slice2[1]
+			}
+
+			if strings.Contains(favicon, "~") {
+				s := strings.LastIndex(favicon, "/")
+				favicon = favicon[s+1:len(favicon)]
+			}
+
+			//fmt.Println(favicon)
+			//fmt.Println(homepage)
+
+			_, err = url.ParseRequestURI(favicon)
+			if !strings.Contains(favicon, "://") || err != nil {
+				if favicon != "" && !strings.Contains(favicon, "data:image/png;base64,") {
+					if favicon[0:2] == "//" { // cnn uses this strange syntax
+						favicon = "http://" + favicon[2:len(favicon)]
+					} else if favicon[0:1] == "/" && homepage[len(homepage)-1:] == "/" { // double backslash
+						favicon = homepage + favicon[1:len(favicon)]
+					} else { // if the favicon itself is not a url, try it with the homepage
+						favicon = homepage + favicon
+					}
+				}
+			}
+
+			if favicon == "" {
+				res, err = http.Get(homepage + "favicon.ico")
+				if err != nil {
+					http.Error(w, err.Error() + "\n" + "could not parse homepage url: " + homepage, http.StatusInternalServerError)
+					return
+				}
+				imgBody, imgErr := ioutil.ReadAll(res.Body)
+				res.Body.Close()
+				if imgErr != nil {
+					http.Error(w, imgErr.Error() + "\n" + "could not parse page", http.StatusInternalServerError)
+					return
+				}
+				imgContent := http.DetectContentType(imgBody)
+
+				if imgContent == "image/jpeg" || imgContent == "image/png" ||
+					imgContent == "image/gif" || imgContent == "image/x-icon" ||
+					imgContent == "image/vnd.microsoft.icon" {
+					favicon = homepage + "favicon.ico"
+				}
+			}
+		}
+
+		epoch := strconv.Itoa(int(time.Now().Unix()))
+		comment := r.FormValue("comment")
+
+		face := r.FormValue("face")
+		// face (base64 png) validation
+		_, f_err := base64.StdEncoding.DecodeString(face)
+		if f_err != nil {
+			http.Error(w, f_err.Error() + "\n" + "malformed base64 encoded png face image", http.StatusInternalServerError)
+			return
+		}
+
+		// no way to validate xfaces on the back-end (yet)
+		// see: use cgo to run compface (looking for a better solution)
+		xface := r.FormValue("xface")
+
+		// md5 validation
+		md5 := md5.Sum([]byte(email))
+		emailMD5 := hex.EncodeToString(md5[:])
+		emailMD5URL := "http://www.gravatar.com/avatar.php?gravatar_id="+emailMD5+"&size=48&d=404"
+		emailRes, _ := http.Get(emailMD5URL)
+		imgBody, imgErr := ioutil.ReadAll(emailRes.Body)
+		emailRes.Body.Close()
+		if imgErr != nil {
+			fmt.Println(imgErr)
+		}
+		imgContent := http.DetectContentType(imgBody)
+		var extantMD5 string
+		if imgContent == "image/jpeg" {
+			extantMD5 = emailMD5
+		}
+
+		outStr := name + "\n" + ip + "\n" + email + "\n" + homepage + "\n" + epoch + "\n" + comment + "\n" + face + "\n" + xface + "\n" + extantMD5 +  "\n" + favicon
+
+		p := &Page{Title: title}
+		err = p.saveComment(outStr)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/entries/"+title, http.StatusFound)
+	} else {
+		http.Redirect(w, r, "/entries/main", http.StatusFound)
 	}
-
-	outStr := name + "¦" + ip + "¦" + email + "¦" + homepage + "¦" + epoch + "¦" + comment + "¦" + face + "¦" + xface + "¦"
-
-	p := &Page{Title: title}
-	err := p.saveComment(outStr)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
 func removeCommentHandler(w http.ResponseWriter, r *http.Request, title string) {
 	comment_num := r.FormValue("comment_num")
 
-	p := &Page{Title: title}
-	err := p.removeComment(comment_num)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if(title != "") {
+		p := &Page{Title: title}
+		err := p.removeComment(comment_num)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/entries/"+title, http.StatusFound)
+	} else {
+		http.Redirect(w, r, "/entries/main", http.StatusFound)
 	}
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
-var templates = template.Must(template.ParseFiles("tmpl/edit.html", "tmpl/view.html"))
+func encodeHandler(w http.ResponseWriter, r *http.Request, title string) {
+	if title != "" {
+		p, err := loadPage(title)
+		if err != nil {
+			http.Redirect(w, r, "/edit/"+title, http.StatusFound)
+			return
+		}
+		json.NewEncoder(w).Encode(p)
+	}
+}
+
+var templates = template.Must(template.ParseFiles("tmpl/edit.html", "tmpl/view.html", "tmpl/entries.html"))
 var titleValidator = regexp.MustCompile("^[a-zA-Z0-9]+$")
 
 func handleFunc (path string, fn func(http.ResponseWriter, *http.Request, string)) {
 	lenPath := len(path)
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		title := r.URL.Path[lenPath:]
-		if !titleValidator.MatchString(title) {
+		/*if !titleValidator.MatchString(title) {
 			http.NotFound(w, r)
 			return
-		}
+		}*/
 		fn(w, r, title)
 	}
 
@@ -230,7 +411,7 @@ func handleFunc (path string, fn func(http.ResponseWriter, *http.Request, string
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/view/main", http.StatusFound)
+	http.Redirect(w, r, "/entries/main", http.StatusFound)
 }
 
 func main() {
@@ -238,9 +419,10 @@ func main() {
 	fmt.Println("starting")
 	// dynamic content
 	http.HandleFunc("/", rootHandler)
-	handleFunc("/view/", viewHandler)
+	handleFunc("/entries/", viewHandler)
 	handleFunc("/edit/", editHandler)
 	handleFunc("/save/", saveHandler)
+	handleFunc("/encode/", encodeHandler)
 	handleFunc("/remove/", removeHandler)
 	handleFunc("/comment/", commentHandler)
 	handleFunc("/removecomment/", removeCommentHandler)
@@ -250,7 +432,6 @@ func main() {
 	http.Handle("/face/", http.StripPrefix("/face/", http.FileServer(http.Dir("face"))))
 	http.ListenAndServe(":8080", nil)
 }
-
 
 // replace emoticon markup with html
 func ParseEmoticons(s string) string {
@@ -307,15 +488,15 @@ var path = ""
 // TODO: move this to faces package
 func (c *CommentType) SearchPicons(s string) []template.HTML {
 	var pBox []template.HTML
-	if(s=="") {
-		pImg := `<img class="face" src="face/picons/misc/MISC/noface/face.gif" title="picon">`
+	if s == "" {
+		pImg := `<img class="face" src="face/picons/misc/MISC/noface/face.gif" title="noface">`
 		pBox = append(pBox, template.HTML(pImg))
 	} else {
-		atSign := strings.Index(s, "@");
+		atSign := strings.Index(s, "@")
 		mfPiconDatabases := [4]string{"domains/", "users/", "misc", "usenix/"}
 		count := 0
 		// if we have a valid email address
-		if (atSign != -1) {
+		if atSign != -1 {
 			host := s[atSign + 1:len(s)]
 			user := s[0:atSign]
 			host_pieces := strings.Split(host, ".")
@@ -324,7 +505,7 @@ func (c *CommentType) SearchPicons(s string) []template.HTML {
 			pBox = append(pBox, template.HTML(pDef))
 
 			for i := range mfPiconDatabases {
-				p_path := "face/picons/" + mfPiconDatabases[i]; // they are stored in $PROFILEPATH$/messagefaces/picons/ by default
+				p_path := "face/picons/" + mfPiconDatabases[i] // they are stored in $PROFILEPATH$/messagefaces/picons/ by default
 				if mfPiconDatabases[i] == "misc/" {
 					p_path += "MISC/"
 				} // special case MISC
@@ -343,9 +524,9 @@ func (c *CommentType) SearchPicons(s string) []template.HTML {
 					}
 					p_path += "face.gif"
 					if _, err := os.Stat(p_path); err == nil {
-						if(count==0) {
+						if count == 0 {
 							pBox[0] = template.HTML(`<img class="face" src="` + path + p_path + `"`)
-							if strings.Contains(p_path,"users") {
+							if strings.Contains(p_path, "users") {
 								pBox[0] += template.HTML(` title="` + host_pieces[len(host_pieces)-1] + `">`)
 							} else {
 								pBox[0] += template.HTML(` title="` + host_pieces[l] + `">`)
@@ -359,13 +540,80 @@ func (c *CommentType) SearchPicons(s string) []template.HTML {
 							}
 							pBox = append(pBox, template.HTML(pImg))
 						}
-						count++;
+						count++
 					}
-					p_path = clonedLocal;
-					l--;
+					p_path = clonedLocal
+					l--
 				}
 			}
 		}
 	}
 	return pBox
 }
+
+func markdown(in string) {
+/* markdown
+\n </p>
+** <b>
+__ <b>
+_ <i>
+* <i>
+~~ <s>
+> blockquote
+``` <code> (block)
+` <code> (inline)
+--- <hr>
+*** <hr>
+___ <hr>
+-_  _- <small>
+## <u>
+%% <mark>
+_{} <sub>
+^{} <sup>
+
+###### <h6>
+##### <h5>
+#### <h4>
+### <h3>
+## <h2>
+# <h1>
+
+Alt-H1
+======
+
+Alt-H2
+------
+
+[]() url
+![]() img
+
+Bullet list:
+  * apples
+  * oranges
+  * pears
+
+Numbered list:
+  1. apples
+  2. oranges
+  3. pears
+
+table:
+Markdown | Less | Pretty
+--- | --- | ---
+*Still* | `renders` | **nicely**
+1 | 2 | 3
+
+raw html
+s/\!\[(.*)\]\((.*)\)/<img src=\2 alt=\1>/g;  # markdown url (force unwrap image)
+s/\[(.*)\]\((.*)\)/<a href=\2>\1<\/a>/g;  # markdown url
+s/\[(.*)\]<([a-zA-Z0-9[:space:]_,]*)>/<abbr title="\2">\1<\/abbr>/g;  # replace []<> <abbr>
+s|[[:space:]](http[:]//[^ ]*[a-zA-Z])[[:space:]]| <a href=\"\1\">\1</a> |g;  # replace urls  html urls
+s|https[:]\/\/www.youtube.com\/watch\?v=([a-zA-Z0-9_]*)|<object style="width:100%;height:100%;width:420px;height:315px;float:none;clear:both;margin:2px auto;" data="http:\/\/www.youtube.com\/embed\/\1"><\/object>|g;
+s|\w+@\w+\.\w+(\.\w+)?|<a href=\"mailto:\0\">\0</a>|g;s/\//\\\//g' $2);  # email mailto
+*/
+}
+
+/* gravatar
+http.DetectContentType
+https://github.com/eefret/gravatar/blob/master/gravatar.go
+*/
