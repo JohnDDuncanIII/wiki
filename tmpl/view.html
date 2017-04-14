@@ -17,7 +17,7 @@
 </div>
 </div>
 
-<div id="comments">{{ range $key, $value := .CommentsArr }}{{ if $value.Ip }}
+<div id="comments">{{ range $key, $value := .Comments }}{{ if $value.Ip }}
 <div id="comment{{$key}}" class="comment">
 <div id="facesBox{{$key}}" class="facesBox">{{if .Face }}<img id="face{{$key}}" class="face" title="face" src="data:image/png;base64,{{ .Face }}">{{ end }}{{ if .EmailMD5 }}<img id="gravatar{{$key}}" class="face"  src="http://www.gravatar.com/avatar/{{ .EmailMD5 }}?size=48&amp;d=404">{{ end }}{{ range $k, $picon := .SearchPicons .Email }}{{ $picon }}{{ end }}</div>
 <p class="byline">{{ if .Favatar }}<img src="{{ .Favatar }}" height="16" width="16"> {{ end }}on {{ $value.Epoch }}, {{ if $value.Homepage }}<a href="{{ $value.Homepage }}" target="_new">{{ $value.Name }}</a>{{ else }}{{ $value.Name }}{{ end }} {{ if $value.Email }}[<a href="mailto://{{ $value.Email }}" rel="nofollow">e-mail</a>]{{ end }} said:</p>
@@ -38,7 +38,7 @@
 
 <div class="forms">
 <input id="bakecookie" name="bakecookie" type="checkbox">
-<label for="bakecookie">Save Info?<span></span></label>
+<label for="bakecookie">Save Info? <span></span></label>
 <input type="submit" value="post comment">
 </div>
 </form>

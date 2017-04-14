@@ -25,7 +25,7 @@ import ( // https://gowebexamples.github.io/password-hashing/
 
 var date_format = "Monday, January 2 2006 at 3:04pm"
 
-type CommentType struct {
+type Comment struct {
 	Name string
 	Email string
 	Xface string
@@ -38,14 +38,13 @@ type CommentType struct {
 	Favatar string
 }
 
-type Page struct {
+type Entry struct {
 	Title string
 	Body string
-	Comments int
-	CommentsArr map[int]*CommentType
+	Comments map[int]*Comment
 }
 
-func (p *Page) save() error {
+func (p *Entry) save() error {
 	path :=  "entries/" + p.Title + "/"
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		os.Mkdir(path, os.ModePerm)
@@ -54,7 +53,7 @@ func (p *Page) save() error {
 	return ioutil.WriteFile(filename, []byte(p.Body), 0600)
 }
 
-func (p *Page) saveComment(outStr string) error {
+func (p *Entry) saveComment(outStr string) error {
 	path :=  "entries/" + p.Title + "/comments/"
 	filename_n := "entries/" + p.Title + "/comments/num.txt"
 	num_comments, _ := ioutil.ReadFile(filename_n)
@@ -77,17 +76,17 @@ func (p *Page) saveComment(outStr string) error {
 	return ioutil.WriteFile(filename, []byte(outStr), 0600)
 }
 
-func (p *Page) remove() error {
+func (p *Entry) remove() error {
 	path :=  "entries/" + p.Title + "/"
 	return os.RemoveAll(path)
 }
 
-func (p *Page) removeComment(cmt_num string) error {
+func (p *Entry) removeComment(cmt_num string) error {
 	path :=  "entries/" + p.Title + "/comments/" + cmt_num + ".txt"
 	return os.Remove(path)
 }
 
-func loadPage(title string) (*Page, error) {
+func loadEntry(title string) (*Entry, error) {
 	if _, err := os.Stat("entries/"); os.IsNotExist(err) {
 		os.Mkdir("entries", os.ModePerm)
 	}
@@ -104,12 +103,11 @@ func loadPage(title string) (*Page, error) {
 	num_comments, err := ioutil.ReadFile(cn_filename)
 	int_comments, _ := strconv.Atoi(string(num_comments))
 
-	m := make(map[int]*CommentType)
+	m := make(map[int]*Comment)
 
 	for i := 0; i <= int_comments; i++ {
 		dat, err := ioutil.ReadFile("entries/"+title+"/comments/"+strconv.Itoa(i)+".txt")
 		if(err == nil) {
-			//dat_arr := strings.Split(string(dat), "¦")
 			dat_arr := strings.Split(string(dat), "\n")
 
 			name := dat_arr[0]
@@ -127,19 +125,19 @@ func loadPage(title string) (*Page, error) {
 			md5 := dat_arr[8]
 			favatar := dat_arr[9]
 
-			c := &CommentType{Name: name, Email: email, Xface: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: comment, EmailMD5: md5, Favatar: favatar}
+			c := &Comment{Name: name, Email: email, Xface: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: comment, EmailMD5: md5, Favatar: favatar}
 			m[i] = c;
 		}
 	}
 
-	return &Page{Title: title, Body: body, CommentsArr: m}, nil
+	return &Entry{Title: title, Body: body, Comments: m}, nil
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 	var output bytes.Buffer
 	if title != "" {
 		//fmt.Println(r.URL.Path[len("/entries/"):])
-		p, err := loadPage(title)
+		p, err := loadEntry(title)
 		if err != nil {
 			http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 			return
@@ -167,9 +165,9 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 }
 
 func editHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
+	p, err := loadEntry(title)
 	if err != nil {
-		p = &Page{Title: title}
+		p = &Entry{Title: title}
 	}
 	if title != "" {
 		err = templates.ExecuteTemplate(w, "edit.html", p)
@@ -186,9 +184,7 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 	if title != "" {
 		body := r.FormValue("body")
-
-		//p := &Page{Title: title, Body: []byte(body)}
-		p := &Page{Title: title, Body: body}
+		p := &Entry{Title: title, Body: body}
 		err := p.save()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -202,7 +198,7 @@ func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 
 func removeHandler(w http.ResponseWriter, r *http.Request, title string) {
 	if title != "" {
-		p := &Page{Title: title}
+		p := &Entry{Title: title}
 		err := p.remove()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -322,7 +318,12 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 		}
 
 		epoch := strconv.Itoa(int(time.Now().Unix()))
+
 		comment := r.FormValue("comment")
+		// convert newlines to separate paragraphs
+		comment = strings.Replace(comment, "\r\n", "</p><p>" , -1)
+		comment = strings.Replace(comment, "\n", "</p><p>" , -1)
+		comment = strings.Replace(comment, "<p></p>", "" , -1)
 
 		face := r.FormValue("face")
 		// face (base64 png) validation
@@ -353,8 +354,7 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 		}
 
 		outStr := name + "\n" + ip + "\n" + email + "\n" + homepage + "\n" + epoch + "\n" + comment + "\n" + face + "\n" + xface + "\n" + extantMD5 +  "\n" + favicon
-
-		p := &Page{Title: title}
+		p := &Entry{Title: title}
 		err = p.saveComment(outStr)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -370,7 +370,7 @@ func removeCommentHandler(w http.ResponseWriter, r *http.Request, title string) 
 	comment_num := r.FormValue("comment_num")
 
 	if(title != "") {
-		p := &Page{Title: title}
+		p := &Entry{Title: title}
 		err := p.removeComment(comment_num)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -384,7 +384,7 @@ func removeCommentHandler(w http.ResponseWriter, r *http.Request, title string) 
 
 func encodeHandler(w http.ResponseWriter, r *http.Request, title string) {
 	if title != "" {
-		p, err := loadPage(title)
+		p, err := loadEntry(title)
 		if err != nil {
 			http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 			return
@@ -479,6 +479,9 @@ func ParseEmoticons(s string) string {
 	s = strings.Replace(s,"O_O",e_path + "eek.gif>",-1)
 	s = strings.Replace(s,":kiss:",e_path + "kiss.gif>",-1)
 	s = strings.Replace(s,":*",e_path + "kiss.gif>",-1)
+	//s = strings.Replace(s,"&lt;br&gt;", "<br>", -1)
+	s = strings.Replace(s,"&lt;/p&gt;", "</p>", -1)
+	s = strings.Replace(s,"&lt;p&gt;", "<p>", -1)
 
 	return s
 }
@@ -486,7 +489,7 @@ func ParseEmoticons(s string) string {
 var path = ""
 // script that parses through a picon db w/ a given email
 // TODO: move this to faces package
-func (c *CommentType) SearchPicons(s string) []template.HTML {
+func (c *Comment) SearchPicons(s string) []template.HTML {
 	var pBox []template.HTML
 	if s == "" {
 		pImg := `<img class="face" src="face/picons/misc/MISC/noface/face.gif" title="noface">`
@@ -505,9 +508,9 @@ func (c *CommentType) SearchPicons(s string) []template.HTML {
 			pBox = append(pBox, template.HTML(pDef))
 
 			for i := range mfPiconDatabases {
-				p_path := "face/picons/" + mfPiconDatabases[i] // they are stored in $PROFILEPATH$/messagefaces/picons/ by default
+				piconPath := "face/picons/" + mfPiconDatabases[i] // they are stored in $PROFILEPATH$/messagefaces/picons/ by default
 				if mfPiconDatabases[i] == "misc/" {
-					p_path += "MISC/"
+					piconPath += "MISC/"
 				} // special case MISC
 
 				// get number of database folders (probably six, but could theoretically change)
@@ -515,25 +518,25 @@ func (c *CommentType) SearchPicons(s string) []template.HTML {
 				// we will check to see if we have a match at EACH depth,
 				//     so keep a cloned version w/o the 'unknown/face.gif' portion
 				for l >= 0 { // loop through however many pieces we have of the host
-					p_path += host_pieces[l] + "/" // add that portion of the host (ex: 'edu' or 'gettysburg' or 'cs')
-					clonedLocal := p_path
+					piconPath += host_pieces[l] + "/" // add that portion of the host (ex: 'edu' or 'gettysburg' or 'cs')
+					clonedLocal := piconPath
 					if mfPiconDatabases[i] == "users/" {
-						p_path += user + "/"
+						piconPath += user + "/"
 					} else {
-						p_path += "unknown/"
+						piconPath += "unknown/"
 					}
-					p_path += "face.gif"
-					if _, err := os.Stat(p_path); err == nil {
+					piconPath += "face.gif"
+					if _, err := os.Stat(piconPath); err == nil {
 						if count == 0 {
-							pBox[0] = template.HTML(`<img class="face" src="` + path + p_path + `"`)
-							if strings.Contains(p_path, "users") {
+							pBox[0] = template.HTML(`<img class="face" src="` + path + piconPath + `"`)
+							if strings.Contains(piconPath, "users") {
 								pBox[0] += template.HTML(` title="` + host_pieces[len(host_pieces)-1] + `">`)
 							} else {
 								pBox[0] += template.HTML(` title="` + host_pieces[l] + `">`)
 							}
 						} else {
-							pImg := `<img class="face" src="` + path + p_path + `"`
-							if strings.Contains(p_path, "users") {
+							pImg := `<img class="face" src="` + path + piconPath + `"`
+							if strings.Contains(piconPath, "users") {
 								pImg += ` title="` + user + `">`
 							} else {
 								pImg += ` title="` + host_pieces[l] + `">`
@@ -542,7 +545,7 @@ func (c *CommentType) SearchPicons(s string) []template.HTML {
 						}
 						count++
 					}
-					p_path = clonedLocal
+					piconPath = clonedLocal
 					l--
 				}
 			}
