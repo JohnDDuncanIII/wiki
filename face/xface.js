@@ -502,11 +502,16 @@ PNGFace.prototype.Color = function(index, asRGBA)
 // insert string into array
 PNGFace.prototype.Insert = function(offs, str)
 {
-    for (let j = 0; j < str.length; ++j)
+    for (let j = 0; j < str.length; ++j) {
+	//console.log("crash here" + offs +" "+ j+" " +str.charAt(j))
+	//console.log("toadd" + str.charAt(j));
 	this.png[offs++] = str.charAt(j);
+    }
 }
 PNGFace.prototype.Insert4 = function(offs, w)
 {
+    console.log((w>>24)&255, (w>>16)&255, (w>>8)&255, w&255);
+    console.log(String.fromCharCode((w>>24)&255, (w>>16)&255, (w>>8)&255, w&255));
     this.Insert(offs, String.fromCharCode((w>>24)&255, (w>>16)&255, (w>>8)&255, w&255));
 }
 
@@ -514,8 +519,11 @@ PNGFace.prototype.Insert4 = function(offs, w)
 PNGFace.prototype.CRC32 = function(offs, size)
 {
     let crc = -1; // initialize crc
-    for (let i = 4; i < size - 4; ++i)
+    for (let i = 4; i < size - 4; ++i) {
 	crc = this.crc32_table[(crc ^ this.png[offs + i].charCodeAt(0)) & 0xff] ^ ((crc >> 8) & 0x00ffffff);
+    }
+    console.log(offs + " " + crc + " " + size)
+    
     this.Insert4(offs + size - 4, crc ^ -1);
 }
 
@@ -532,9 +540,12 @@ PNGFace.prototype.URL = function(xface)
 	for (let x = -1; x < 48; ++x)
     {
 	let i = y * 49 + x + 73;
-	if (x >= 0)
+	if (x >= 0) {
+	    //console.log(String.fromCharCode(xface[x + y * 48]));
 	    this.png[i] = String.fromCharCode(xface[x + y * 48]); // set X-Face dot
+	}
 	s1 += this.png[i].charCodeAt(0);
+	//console.log(s1)
 	s2 += s1;
 	if (!(n -= 1))
 	{
@@ -615,7 +626,9 @@ function FaceURL(asFace, aoComputedStyle)
     let oForeColors = ReadCSSColor(aoComputedStyle, "color", "0,0,0,1");
     goPNGFace.Color(1, oForeColors);
 
-    return "data:image/png;base64," + btoa(goPNGFace.URL(F));
+    var pngFace = goPNGFace.URL(F);
+    console.log(pngFace);
+    return "data:image/png;base64," + btoa(pngFace);
 }
 
 function doXFace(xFace, gCount){
