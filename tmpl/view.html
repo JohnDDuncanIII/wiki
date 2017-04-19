@@ -4,7 +4,6 @@
 <base href="http://localhost:8080/">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/face.css">
-<script src="face/xface.js"></script>
 <title>{{ .Title }}</title>
 </head>
 <h1>{{ .Title }}</h1>
@@ -17,15 +16,16 @@
 </div>
 </div>
 
-<div id="comments">{{ range $key, $value := .Comments }}{{ if $value.Ip }}
+{{ if .Comments }}<div id="comments">{{ range $key, $value := .Comments }}{{ if $value.Ip }}
 <div id="comment{{$key}}" class="comment">
-<div id="facesBox{{$key}}" class="facesBox">{{if .Face }}<img id="face{{$key}}" class="face" title="face" src="data:image/png;base64,{{ .Face }}">{{ end }}{{ if .EmailMD5 }}<img id="gravatar{{$key}}" class="face"  src="http://www.gravatar.com/avatar/{{ .EmailMD5 }}?size=48&amp;d=404">{{ end }}{{ range $k, $picon := .SearchPicons .Email }}{{ $picon }}{{ end }}</div>
-<p class="byline">{{ if .Favatar }}<img src="{{ .Favatar }}" height="16" width="16"> {{ end }}on {{ $value.Epoch }}, {{ if $value.Homepage }}<a href="{{ $value.Homepage }}" target="_new">{{ $value.Name }}</a>{{ else }}{{ $value.Name }}{{ end }} {{ if $value.Email }}[<a href="mailto://{{ $value.Email }}" rel="nofollow">e-mail</a>]{{ end }} said:</p>
-{{ if .Xface }}<script>doXFace({{ .Xface }},{{ $key }});</script>{{ end }}{{ if .Comment }}<p>{{ $value.Comment }}</p>{{ end }}<div class="forms"><form action="/removecomment/{{$.Title}}" method="POST">
+<div id="facesBox{{$key}}" class="facesBox">{{ if .XFace }}<img id="xface{{$key}}" class="face" title="face" src="data:image/png;base64,{{ .XFace }}">{{ end }}{{if .Face }}<img id="face{{$key}}" class="face" title="face" src="data:image/png;base64,{{ .Face }}">{{ end }}{{ if .EmailMD5 }}<img id="gravatar{{$key}}" class="face"  src="http://www.gravatar.com/avatar/{{ .EmailMD5 }}?size=48&amp;d=404">{{ end }}{{ range $k, $picon := .SearchPicons .Email }}{{ $picon }}{{ end }}</div>
+<p class="byline">{{ if .Favatar }}<img id="favatar" src="{{ .Favatar }}"> {{ end }}on {{ $value.Epoch }}, {{ if $value.Homepage }}<a href="{{ $value.Homepage }}" target="_new">{{ $value.Name }}</a>{{ else }}{{ $value.Name }}{{ end }} {{ if $value.Email }}[<a href="mailto://{{ $value.Email }}" rel="nofollow">e-mail</a>]{{ end }} said:</p>
+{{ if .Comment }}<p>{{ $value.Comment }}</p>{{ end }}
+<div class="forms"><form action="/removecomment/{{$.Title}}" method="POST">
 <input type="hidden" name="comment_num" value="{{$key}}">
 <input type="submit" value="remove">
 </form></div></div>
-{{ end }}{{ end }}</div>
+{{ end }}{{ end }}</div> {{ end }}
 
 <div id="comment">
 <form action="/comment/{{ .Title }}" method="POST">

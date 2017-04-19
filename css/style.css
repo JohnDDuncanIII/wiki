@@ -72,13 +72,18 @@ hr { border: 1px dotted black; }
     display: block;
 }
 
+#favatar {
+    width: 16px;
+    height: 16px;
+}
+
 .flourish {
     display: table;
     margin: 0 auto;
     margin-top:5px;
 }
 
-.raised {
+/*.raised {
     position: absolute;
     top: -10px;
     left: 12px;
@@ -87,7 +92,7 @@ hr { border: 1px dotted black; }
     background-image: none;
     background-image: url(data:image/gif;base64,R0lGODdhAwADAIABAPv7+////ywAAAAAAwADAAACA0RuWAA7);
     cursor: pointer;
-}
+}*/
 
 .forms {
     border: none;

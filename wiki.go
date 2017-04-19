@@ -28,7 +28,7 @@ var date_format = "Monday, January 2 2006 at 3:04pm"
 type Comment struct {
 	Name string
 	Email string
-	Xface string
+	XFace string
 	Face string
 	Homepage string
 	Ip string
@@ -124,8 +124,7 @@ func loadEntry(title string) (*Entry, error) {
 			xface := dat_arr[7]
 			md5 := dat_arr[8]
 			favatar := dat_arr[9]
-
-			c := &Comment{Name: name, Email: email, Xface: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: comment, EmailMD5: md5, Favatar: favatar}
+			c := &Comment{Name: name, Email: email, XFace: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: comment, EmailMD5: md5, Favatar: favatar}
 			m[i] = c;
 		}
 	}
@@ -336,6 +335,9 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 		// no way to validate xfaces on the back-end (yet)
 		// see: use cgo to run compface (looking for a better solution)
 		xface := r.FormValue("xface")
+		if xface != "" {
+			xface = doXFace(xface)
+		}
 
 		// md5 validation
 		md5 := md5.Sum([]byte(email))
@@ -417,6 +419,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// start the server
 	fmt.Println("starting")
+	//fmt.Println(doXFace(`"U}R^$Xp=0R/(glLp)g?~N)^Og1y({R=)edkh1;MQQ^VlPtcwB<)CPkp_eV%agd_hn.]fI]  /df4S~c@0g|`))
 	// dynamic content
 	http.HandleFunc("/", rootHandler)
 	handleFunc("/entries/", viewHandler)

@@ -276,7 +276,7 @@ function BigMul(a) { // multiply B.b_word by a (B.b_word[0]=LSB)
 	word[i] = (c & WORDMASK);
 	c >>= BITSPERWORD;
     }
-    if (c) 
+    if (c)
 	word[B.b_first + B.b_words++] = c & WORDMASK;
 }
 
@@ -338,7 +338,7 @@ function PopGreys(off, len) {
 }
 
 
-function UnCompress(off, len, lev) { 
+function UnCompress(off, len, lev) {
     switch (BigPop(levels[lev])) {
     case WHITE:
 	return;
@@ -503,15 +503,11 @@ PNGFace.prototype.Color = function(index, asRGBA)
 PNGFace.prototype.Insert = function(offs, str)
 {
     for (let j = 0; j < str.length; ++j) {
-	//console.log("crash here" + offs +" "+ j+" " +str.charAt(j))
-	//console.log("toadd" + str.charAt(j));
 	this.png[offs++] = str.charAt(j);
     }
 }
 PNGFace.prototype.Insert4 = function(offs, w)
 {
-    console.log((w>>24)&255, (w>>16)&255, (w>>8)&255, w&255);
-    console.log(String.fromCharCode((w>>24)&255, (w>>16)&255, (w>>8)&255, w&255));
     this.Insert(offs, String.fromCharCode((w>>24)&255, (w>>16)&255, (w>>8)&255, w&255));
 }
 
@@ -522,8 +518,8 @@ PNGFace.prototype.CRC32 = function(offs, size)
     for (let i = 4; i < size - 4; ++i) {
 	crc = this.crc32_table[(crc ^ this.png[offs + i].charCodeAt(0)) & 0xff] ^ ((crc >> 8) & 0x00ffffff);
     }
-    console.log(offs + " " + crc + " " + size)
-    
+
+
     this.Insert4(offs + size - 4, crc ^ -1);
 }
 
@@ -541,11 +537,9 @@ PNGFace.prototype.URL = function(xface)
     {
 	let i = y * 49 + x + 73;
 	if (x >= 0) {
-	    //console.log(String.fromCharCode(xface[x + y * 48]));
 	    this.png[i] = String.fromCharCode(xface[x + y * 48]); // set X-Face dot
 	}
 	s1 += this.png[i].charCodeAt(0);
-	//console.log(s1)
 	s2 += s1;
 	if (!(n -= 1))
 	{
@@ -565,69 +559,30 @@ PNGFace.prototype.URL = function(xface)
     this.CRC32(2432,   12);
 
     // convert PNG to string
+    /*var toReturn = ""
+    for (var i = 0; i < this.png.length; i++) {
+	toReturn += this.png[i].charCodeAt(0) + " "
+    }
+    console.log(toReturn);*/
     return "\211PNG\r\n\032\n"+this.png.join('');
 }
 
-
-function ReadCSSColor(aoComputedStyle, asColorName, asDefaultValue)
-{
-    let sColor = aoComputedStyle.getPropertyCSSValue(asColorName).cssText;
-    if (/^rgba\(/.test(sColor))
-    {
-	// have rgba values
-	sColor = sColor.substr(5, sColor.length - 6);
-    }
-    else if (/^rgb\(/.test(sColor))
-    {
-	// only rgb values, assume opaque
-	sColor = sColor.substr(4, sColor.length - 5) + ",1";
-    }
-    else if (sColor == "transparent")
-    {
-	// special value
-	sColor = "0,0,0,0";
-    }
-    else
-    {
-	// default: plain opaque white
-	sColor = asDefaultValue;
-    }
-    return sColor;
-}
-
-
-//
 //  Create data URL for X-Face-PNG
-//
 let goPNGFace = new PNGFace();
 
-function FaceURL(asFace, aoComputedStyle)
-{
+function FaceURL(asFace, aoComputedStyle) {
     UnCompAll(asFace.replace(/[^!-~]/g, "")); // eliminate illegal chars
     Gen();
 
-    // set colour values:
-    //  #fromBuddyIconXFace
-    //  {
-    //	color:		  green;
-    //	color:		  -moz-rgba(50%, 50%, 50%, 0.5);
-    //	background-color: red;
-    //	background-color: transparent;
-    //	padding:	  0 ! important;
-    //	margin:		  5px;
-    //  }
-    // Unfortunately, the alpha channel value of -moz-rgba is retrievable
-    // only on trunk since about 2007-01-24...
-
-    // background; defaults to plain opaque white
-    let sBackColors = ReadCSSColor(aoComputedStyle, "background-color", "255,255,255,1");
-    goPNGFace.Color(0, sBackColors);
-    // foreground; defaults to plain opaque black
-    let oForeColors = ReadCSSColor(aoComputedStyle, "color", "0,0,0,1");
-    goPNGFace.Color(1, oForeColors);
+    goPNGFace.Color(0, "255,255,255,1");
+    goPNGFace.Color(1, "0,0,0,1");
 
     var pngFace = goPNGFace.URL(F);
-    console.log(pngFace);
+    //console.log(pngFace);
+    var toReturn = ""
+    for (var i = 0; i < pngFace.length; i++) {
+	toReturn += pngFace[i].charCodeAt(0) + " "
+    }
     return "data:image/png;base64," + btoa(pngFace);
 }
 
@@ -645,4 +600,5 @@ function doXFace(xFace, gCount){
     }
     xFaceImg.setAttribute("src", xFaceCache[xFace]);
     document.getElementById("facesBox"+gCount).insertBefore(xFaceImg, document.getElementById("facesBox"+gCount).firstChild);
+    //return xFaceCache[xFace];
 }

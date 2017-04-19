@@ -1,37 +1,34 @@
 package main
 
 import (
-	b64 "encoding/base64"
-	"fmt"
+	//b64 "encoding/base64"
+	//"fmt"
 	"math"
 	"regexp"
 	"strings"
 	"strconv"
 )
 
-/*
-python: https://www.apt-browse.org/browse/ubuntu/trusty/universe/all/xpn/1.2.6-5/file/usr/share/xpn/xpn_src/XFace.py
-javascript: https://github.com/JohnDDuncanIII/MessageFaces/blob/master/chrome/content/xface.js
-*/
+/* python: https://www.apt-browse.org/browse/ubuntu/trusty/universe/all/xpn/1.2.6-5/file/usr/share/xpn/xpn_src/XFace.py
+javascript (png): https://github.com/JohnDDuncanIII/MessageFaces/blob/master/chrome/content/xface.js
+javascript (bmp): https://bug20417.bmoattachments.org/attachment.cgi?id=184433 */
 
-var LENGTH=48
-var PIXELS=(LENGTH * LENGTH)
+var LENGTH = 48
+var PIXELS = (LENGTH * LENGTH)
 
 var FIRSTPRINT = []rune("!")[0]
 var LASTPRINT  = []rune("~")[0]
 var NUMPRINTS = (LASTPRINT - FIRSTPRINT + 1)
 
-var BITSPERWORD=8
-var WORDCARRY=(1 << uint(BITSPERWORD))
-var WORDMASK=(WORDCARRY - 1)
-var MAXWORDS=math.Floor(float64(((PIXELS * 2 + BITSPERWORD - 1) / BITSPERWORD)))
+var BITSPERWORD = 8
+var WORDCARRY = (1 << uint(BITSPERWORD))
+var WORDMASK = (WORDCARRY - 1)
+var MAXWORDS = math.Floor(float64(((PIXELS * 2 + BITSPERWORD - 1) / BITSPERWORD)))
 
+var BLACK = 0
+var GREY = 1
+var WHITE = 2
 
-var BLACK=0
-var GREY =1
-var WHITE=2
-
-//var B = {b_first: 0, b_words: 0, b_word: [MAXWORDS]int}
 type BType struct {
 	b_first int
 	b_words int
@@ -64,14 +61,17 @@ type Gen struct {
 var B BType = BType{b_first: 0, b_words: 0, b_word: make([]int, int(MAXWORDS))}
 var F = make([]int, PIXELS)
 
-//[...]Levels { }
-var levels = [][]Levels{
+var levels = [][]Levels {
 	[]Levels {Levels{p_offset: 255, p_range:1}, Levels{p_offset: 0, p_range:251}, Levels{p_offset:251, p_range:4 }},
 	[]Levels {Levels{p_offset: 255, p_range:1}, Levels{p_offset: 0, p_range:200}, Levels{p_offset:200, p_range:55 }},
 	[]Levels {Levels{p_offset: 223, p_range:33}, Levels{p_offset: 0, p_range:159}, Levels{p_offset:159, p_range:64 }},
 	[]Levels {Levels{p_offset: 0, p_range:131}, Levels{p_offset: 0, p_range:0}, Levels{p_offset:131, p_range:125 }},
 }
 
+/* At the bottom of the octree 2x2 elements are considered black if any
+ * pixel is black.  The probabilities below give the distribution of the
+ * 16 possible 2x2 patterns.  All white is not really a possibility and
+ * has a probability range of zero.  Again, experimentally derived data */
 var freqs = []Levels {
 	Levels{p_offset:0,   p_range:0 }, Levels{p_offset:0,   p_range:38}, Levels{p_offset:38,  p_range:38}, Levels{p_offset:152, p_range:13},
 	Levels{p_offset:76,  p_range:38}, Levels{p_offset:165, p_range:13}, Levels{p_offset:178, p_range:13}, {p_offset:230, p_range:6 },
@@ -79,6 +79,7 @@ var freqs = []Levels {
 	Levels{p_offset:217, p_range:13}, Levels{p_offset:242, p_range:6 }, Levels{p_offset:248, p_range:5 }, Levels{p_offset:253, p_range:3 },
 }
 
+// table for GenFunc()
 var G = Gen{
 	g_00: []int {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 		1,1,1,0,0,0,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,1,0,1,0,0,0,1,0,1,1,1,0,0,0,0,0,1,0,1,0,0,0,0,1,1,1,1,
@@ -222,12 +223,6 @@ var G = Gen{
 	g_42: []int {0,0,0,1},
 }
 
-func main() {
-	fmt.Println(FaceURL(`"U}R^$Xp=0R/(glLp)g?~N)^Og1y({R=)edkh1;MQQ^VlPtcwB<)CPkp_eV%agd_hn.]fI]  /df4S~c@0g|`))
-	//FaceURL(`"U}R^$Xp=0R/(glLp)g?~N)^Og1y({R=)edkh1;MQQ^VlPtcwB<)CPkp_eV%agd_hn.]fI]/df4S~c@0g|`)
-	//fmt.Println(FaceURL(`"51*4HIY<u2},PN-l{t,lPNnSoXinll=W8x[41G"(%.`+"`"+`zS@y9',6Lld(gPW.`))
-}
-
 func BigMul(a int) { // multiply B.b_word by a (B.b_word[0]=LSB)
 	var i int
 	if a == 1 || B.b_words == 0 {
@@ -279,7 +274,12 @@ func BigAdd(a int) { // add a to B.b_word
 		}
 	}
 	if ((i > last) && c != 0) {
-		B.b_word[i] = c & WORDMASK
+		if i >= len(B.b_word) { // i hate js
+			B.b_word = append(B.b_word, c & WORDMASK)
+		} else {
+			B.b_word[i] = c & WORDMASK
+		}
+
 		B.b_words++
 	}
 }
@@ -321,7 +321,7 @@ func PopGreys(off int, len int) {
 	}
     }
 }
-// test if this switch is working
+
 func UnCompress(off int, len int, lev int) {
 	switch (BigPop(levels[lev])) {
 	case WHITE:
@@ -330,8 +330,8 @@ func UnCompress(off int, len int, lev int) {
 		PopGreys(off, len)
 		return
 	default:
-		len /= 2;
-		lev++;
+		len /= 2
+		lev++
 		UnCompress(off, len, lev)
 		UnCompress(off + len, len, lev)
 		UnCompress(off + len * LENGTH, len, lev)
@@ -346,15 +346,14 @@ func UnCompAll(fbuf string) {
 	B.b_first = 0
 	// convert base 94 to base 256
 	var kl = len(fbuf)
-	for i = 0; i < kl; i++ { // this might need to be prefix incr
+	for i = 0; i < kl; i++ {
 		BigMul(int(NUMPRINTS))
-		//BigAdd(fbuf.charCodeAt(i)  - FIRSTPRINT)
 		cCode := []rune(fbuf)[i]
 		BigAdd(int(cCode) - int(FIRSTPRINT))
 	}
 	// empty icon
 	for i = 0; i < PIXELS; i++ {
-		F[i] = 0;
+		F[i] = 0
 	}
 	// uncompress
 	UnCompress(0, 16, 0)
@@ -379,7 +378,6 @@ func GenFunc() {
 						continue
 					}
 					if (l > 0) && (l <= LENGTH) && (m > 0) {
-						//k = F[l + m * LENGTH] ? k * 2 + 1 : k * 2
 						if F[l + m * LENGTH] != 0 {
 							k = k * 2 + 1
 						} else {
@@ -414,7 +412,7 @@ func GenFunc() {
 					F[h] ^= G.g_10[k]
 					break
 				}
-				break;
+				break
 			case LENGTH - 1 :
 				switch (j) {
 				case 1 :
@@ -460,26 +458,23 @@ func GenFunc() {
 	}
 }
 
+// array of one byte strings, initialized to zero bytes
 var png [2444]string
 var crc32_table [256]int
 
 func PNGFace() {
-	// array of one byte strings, initialized to zero bytes
-	//this.png = new Array(2444);
-
 	var i int
 	for i = 0; i < 2444; i++ {
-		png[i] = string(0);
+		png[i] = "\x00"
 	}
 
 	Insert(0, "\x00\x00\x00\rIHDR\x00\x00\x000\x00\x00\x000\b\x03")
 	Insert(25, "\x00\x00\x00\x06PLTE")
 	Insert(43, "\x00\x00\x00\x02tRNS")
-	Insert(57, "\x00\x00\t;IDATx\xDA\x010\t\xCF\xF6")
+	Insert(57, "\x00\x00\t;IDATxÚ\x010\tÏö")
 	Insert(2432, "\x00\x00\x00\x00IEND")
 
 	/* Table of CRCs of all 8-bit messages. */
-
 	var n int
 	for n = 0; n < 256; n++ {
 		var c = n
@@ -510,54 +505,39 @@ func Color(index int, asRGBA string) {
 func Insert(offs int, str string) {
 	var j int
 	for j = 0; j < len([]rune(str)); j++ { // prefix?
-		//fmt.Println(str, "crash here", string([]rune(str)[j]))
-		//png[offs] = string(str[j])
-		//fmt.Println("toadd", string([]rune(str)[j]))
 		png[offs] = string([]rune(str)[j])
 		offs++
 	}
 }
 
 func Insert4(offs int, w int) {
-	//fmt.Println((w>>24)&255, (w>>16)&255, (w>>8)&255, w&255)
-	//fmt.Println(string((w>>24)&255) + string((w>>16)&255) + string((w>>8)&255) + string(w&255))
 	Insert(offs, (string((w>>24)&255) + string((w>>16)&255) + string((w>>8)&255) + string(w&255)))
 }
 
 func CRC32(offs int, size int) {
-	var crc = -1; // initialize crc
+	var crc = -1 // initialize crc
 	var i int
 	for i = 4; i < size - 4; i++ { // prefix?
-		// when size is large (2375), this will not work
-		// this breaks the program
-		// NOTE: crc32_table is guaranteed to be correct; this is a math/bit shift issue
 		crc = crc32_table[(crc ^ int([]rune(png[offs + i])[0])) & 0xff] ^ ((crc >> 8) & 0x00ffffff)
-		//fmt.Println(int([]rune(png[offs + i])[0]))
 	}
-	//fmt.Println(offs, crc, size)
 	Insert4(offs + size - 4, crc ^ -1)
 }
 
-func PNGFaceURL (xface []int) string {
+func PNGFaceURL (xface []int) {
 	// compute adler32 of output pixels + row filter bytes
-	var BASE = 65521; /* largest prime smaller than 65536 */
-	var NMAX = 5552;  /* NMAX is the largest n such that 255n(n+1)/2 + (n+1)(BASE-1) <= 2^32-1 */
-	var s1 = 1;
-	var s2 = 0;
-	var n = NMAX;
+	var BASE = 65521 /* largest prime smaller than 65536 */
+	var NMAX = 5552  /* NMAX is the largest n such that 255n(n+1)/2 + (n+1)(BASE-1) <= 2^32-1 */
+	var s1 = 1
+	var s2 = 0
+	var n = NMAX
 	var y int
-	for y = 0; y < 48; y++ { // prefix?
+	for y = 0; y < 48; y++ {
 		var x int
-		for x = -1; x < 48; x++ { // prefix?
-			var i = y * 49 + x + 73;
+		for x = -1; x < 48; x++ {
+			var i = y * 49 + x + 73
 			if (x >= 0) {
-				//png[i] = String.fromCharCode(xface[x + y * 48]); // set X-Face dot
-				//fmt.Println(string(xface[x + y * 48]))
 				png[i] = string(xface[x + y * 48]) // set X-Face dot
 			}
-			//s1 += png[i].charCodeAt(0);
-			//fmt.Println(i)
-			//fmt.Println(png)
 			if len([]rune(png[i])) > 0 { // custom
 				s1 += int([]rune(png[i])[0])
 			}
@@ -570,32 +550,64 @@ func PNGFaceURL (xface []int) string {
 			}
 		}
 	}
-	//fmt.Println(png)
+
 	s1 %= BASE
 	s2 %= BASE
 
-	Insert4(2424, (s2 << 16) | s1) // correct
+	Insert4(2424, (s2 << 16) | s1)
 
 	CRC32(0, 25)
 	CRC32(25, 18)
 	CRC32(43, 14)
-	CRC32(57, 2375) // like U/ACC, this one is problematic
+	CRC32(57, 2375)
 	CRC32(2432, 12)
-
-	return "\211PNG\r\n\032\n"+strings.Join(png[:],"");
 }
 
-func FaceURL(asFace string) string {
+// output a PNG string, Base64 encoded (basically, javascript btoa())
+func getBase64 (s string) string {
+	var ch = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+	var c1, c2, c3 rune
+	var e1, e2, e3, e4 uint
+	var l = len([]rune(s))
+	var r = ""
+
+	for i := 0; i < l-1; i+=3 {
+		c1 = []rune(s)[i]
+		e1 = uint(c1) >> 2
+		c2 = []rune(s)[i+1]
+		e2 = ((uint(c1) & 3) << 4) | (uint(c2) >> 4)
+		c3 = []rune(s)[i+2]
+		if (l < i+2) {
+			e3 = 64
+		} else {
+			e3 = (uint(c2 & 0xf) << 2) | (uint(c3) >> 6)
+		}
+		if (l < i+3) {
+			e4 = 64
+		} else {
+			e4 = uint(c3) & 0x3f
+		}
+		r+= string([]rune(ch)[e1]) + string([]rune(ch)[e2]) + string([]rune(ch)[e3]) + string([]rune(ch)[e4])
+	}
+	return r
+}
+
+func doXFace(xface string) string {
 	PNGFace()
 	var re = regexp.MustCompile(`[^!-~]`)
-	s := re.ReplaceAllString(asFace, "")
+	s := re.ReplaceAllString(xface, "")
 	UnCompAll(s) // eliminate illegal chars
 	GenFunc()
 
 	Color(0, "255,255,255,1")
 	Color(1, "0,0,0,1")
 
-	pngFace := PNGFaceURL(F)
-	//fmt.Println(pngFace)
-	return "data:image/png;base64," + b64.StdEncoding.EncodeToString([]byte(pngFace)) ;
+	PNGFaceURL(F)
+	//return "data:image/png;base64," + getBase64(string(0x89)+"PNG\r\n"+string(0x1a)+"\n"+strings.Join(png[:],""))
+	return getBase64(string(0x89)+"PNG\r\n"+string(0x1a)+"\n"+strings.Join(png[:],""))
+	//return "data:image/png;base64," +  b64.StdEncoding.EncodeToString([]byte(string(0x89)+"PNG\r\n"+string(0x1a)+"\n"+strings.Join(png[:],""))) // this is not working
 }
+
+/*func main() {
+	fmt.Println(doXFace(`"U}R^$Xp=0R/(glLp)g?~N)^Og1y({R=)edkh1;MQQ^VlPtcwB<)CPkp_eV%agd_hn.]fI]  /df4S~c@0g|`))
+}*/
