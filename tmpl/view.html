@@ -21,11 +21,11 @@
 <div id="facesBox{{$key}}" class="facesBox">{{ if .XFace }}<img id="xface{{$key}}" class="face" title="face" src="data:image/png;base64,{{ .XFace }}">{{ end }}{{if .Face }}<img id="face{{$key}}" class="face" title="face" src="data:image/png;base64,{{ .Face }}">{{ end }}{{ if .EmailMD5 }}<img id="gravatar{{$key}}" class="face"  src="http://www.gravatar.com/avatar/{{ .EmailMD5 }}?size=48&amp;d=404">{{ end }}{{ range $k, $picon := .SearchPicons .Email }}{{ $picon }}{{ end }}</div>
 <p class="byline">{{ if .Favatar }}<img id="favatar" src="{{ .Favatar }}"> {{ end }}on {{ $value.Epoch }}, {{ if $value.Homepage }}<a href="{{ $value.Homepage }}" target="_new">{{ $value.Name }}</a>{{ else }}{{ $value.Name }}{{ end }} {{ if $value.Email }}[<a href="mailto://{{ $value.Email }}" rel="nofollow">e-mail</a>]{{ end }} said:</p>
 {{ if .Comment }}<p>{{ $value.Comment }}</p>{{ end }}
-<div class="forms"><form action="/removecomment/{{$.Title}}" method="POST">
+<div class="forms">
+<form action="/removecomment/{{$.Title}}" method="POST">
 <input type="hidden" name="comment_num" value="{{$key}}">
 <input type="submit" value="remove">
-</form></div></div>
-{{ end }}{{ end }}</div> {{ end }}
+</form></div></div>{{ end }}{{ end }}</div>{{ end }}
 
 <div id="comment">
 <form action="/comment/{{ .Title }}" method="POST">
@@ -40,9 +40,7 @@
 <input id="bakecookie" name="bakecookie" type="checkbox">
 <label for="bakecookie">Save Info? <span></span></label>
 <input type="submit" value="post comment">
-</div>
-</form>
-</div>
+</div></form></div>
 
 <hr>
 

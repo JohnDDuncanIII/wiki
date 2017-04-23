@@ -504,7 +504,7 @@ func Color(index int, asRGBA string) {
 
 func Insert(offs int, str string) {
 	var j int
-	for j = 0; j < len([]rune(str)); j++ { // prefix?
+	for j = 0; j < len([]rune(str)); j++ {
 		png[offs] = string([]rune(str)[j])
 		offs++
 	}
@@ -517,7 +517,7 @@ func Insert4(offs int, w int) {
 func CRC32(offs int, size int) {
 	var crc = -1 // initialize crc
 	var i int
-	for i = 4; i < size - 4; i++ { // prefix?
+	for i = 4; i < size - 4; i++ {
 		crc = crc32_table[(crc ^ int([]rune(png[offs + i])[0])) & 0xff] ^ ((crc >> 8) & 0x00ffffff)
 	}
 	Insert4(offs + size - 4, crc ^ -1)
@@ -603,11 +603,6 @@ func doXFace(xface string) string {
 	Color(1, "0,0,0,1")
 
 	PNGFaceURL(F)
-	//return "data:image/png;base64," + getBase64(string(0x89)+"PNG\r\n"+string(0x1a)+"\n"+strings.Join(png[:],""))
 	return getBase64(string(0x89)+"PNG\r\n"+string(0x1a)+"\n"+strings.Join(png[:],""))
 	//return "data:image/png;base64," +  b64.StdEncoding.EncodeToString([]byte(string(0x89)+"PNG\r\n"+string(0x1a)+"\n"+strings.Join(png[:],""))) // this is not working
 }
-
-/*func main() {
-	fmt.Println(doXFace(`"U}R^$Xp=0R/(glLp)g?~N)^Og1y({R=)edkh1;MQQ^VlPtcwB<)CPkp_eV%agd_hn.]fI]  /df4S~c@0g|`))
-}*/

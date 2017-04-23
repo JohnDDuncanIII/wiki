@@ -7,10 +7,8 @@
 </head>
 <h1>Entries</h1>
 <div id="entries">
-{{ range $key, $value := . }}
-<a href="entries/{{$value}}">{{$value}}</a>
-{{ end }}
-</div>
+{{ range $key, $value := . }}<a href="entries/{{$value}}">{{$value}}</a>
+{{ end }}</div>
 
 <hr>
 
