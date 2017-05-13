@@ -419,7 +419,6 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// start the server
 	fmt.Println("starting")
-	//fmt.Println(doXFace(`"U}R^$Xp=0R/(glLp)g?~N)^Og1y({R=)edkh1;MQQ^VlPtcwB<)CPkp_eV%agd_hn.]fI]  /df4S~c@0g|`))
 	// dynamic content
 	http.HandleFunc("/", rootHandler)
 	handleFunc("/entries/", viewHandler)
