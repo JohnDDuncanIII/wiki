@@ -1,0 +1,83 @@
+html {
+    /*background-color: rebeccapurple;*/
+    background-color: blue;
+}
+
+body {
+    margin-left: auto;
+    margin-right: auto;
+    display: table;
+    position: relative;
+    background-color: white;
+    border: 2px solid black;
+    text-align: left;
+}
+@media only screen and (min-width:700px) {
+    body {
+	padding-left: 7%;
+	padding-right: 7%;
+	padding-bottom: 2%;
+    }
+}
+
+@media only screen and (max-width:700px) {
+    body {
+	margin-top: 16px;
+	padding-bottom: 2%;
+	padding-left:2pt;
+	padding-right:2pt;
+    }
+}
+
+div {
+    border: 3px double black;
+    padding: 3px;
+    max-width: 600px;
+    display: table;
+}
+
+div:not(:first-of-type) {
+    margin-top: 2px;
+}
+
+h1 {
+    display: table;
+    border-bottom: 1px dotted black;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+hr { border: 1px dotted black; }
+
+.byline {
+    margin-top:0;
+    margin-bottom: 5px;
+    border-bottom: 1px dotted black;
+    display: table;
+}
+
+#entries {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#entries * {
+    display: table;
+}
+
+.flourish {
+    display: table;
+    margin: 0 auto;
+    margin-top:5px;
+}
+
+/* disable anti-aliasing */
+img, span  {
+    image-rendering: -webkit-optimize-contrast; /* Chrome (and eventually Safari) */
+    image-rendering: pixelated; /* Chrome */
+    image-rendering: optimizeSpeed;		/* STOP SMOOTHING, GIVE ME SPEED  */
+    image-rendering: -moz-crisp-edges;		/* Firefox			  */
+    image-rendering: -o-crisp-edges;		/* Opera			  */
+    image-rendering: optimize-contrast;		/* CSS3 Proposed		  */
+    -ms-interpolation-mode: nearest-neighbor;	/* IE8+				  */
+}

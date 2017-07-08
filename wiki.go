@@ -25,6 +25,12 @@ import ( // https://gowebexamples.github.io/password-hashing/
 
 var date_format = "Monday, January 2 2006 at 3:04pm"
 
+type Entry struct {
+	Title string
+	Body template.HTML
+	Comments map[int]*Comment
+}
+
 type Comment struct {
 	Name string
 	Email string
@@ -38,18 +44,13 @@ type Comment struct {
 	Favatar string
 }
 
-type Entry struct {
-	Title string
-	Body string
-	Comments map[int]*Comment
-}
-
 func (p *Entry) save() error {
 	path :=  "entries/" + p.Title + "/"
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		os.Mkdir(path, os.ModePerm)
 	}
 	filename := path + p.Title + ".txt"
+
 	return ioutil.WriteFile(filename, []byte(p.Body), 0600)
 }
 
@@ -67,12 +68,14 @@ func (p *Entry) saveComment(outStr string) error {
 	if _, err := os.Stat(filename_n); os.IsNotExist(err) {
 		ioutil.WriteFile(filename_n, []byte("0"), 0600)
 		filename = path + "0.txt"
+
 		return ioutil.WriteFile(filename, []byte(outStr), 0600)
 	}
 
 	comments++
 	ioutil.WriteFile(filename_n, []byte(strconv.Itoa(comments)), 0600)
 	filename = path + strconv.Itoa(comments) + ".txt"
+
 	return ioutil.WriteFile(filename, []byte(outStr), 0600)
 }
 
@@ -90,14 +93,21 @@ func loadEntry(title string) (*Entry, error) {
 	if _, err := os.Stat("entries/"); os.IsNotExist(err) {
 		os.Mkdir("entries", os.ModePerm)
 	}
+
 	filename := "entries/" + title + "/" + title + ".txt"
 	b, err := ioutil.ReadFile(filename)
+
 	if err != nil {
 		return nil, err
 	}
-	/*body_src := template.HTMLEscapeString(string(b_body))
-	body := template.HTML(ParseEmoticons(body_src))*/
+
 	body := string(b)
+	body = strings.Replace(body, "<p>", "" , -1)
+	body = strings.Replace(body, "</p>", "" , -1)
+	body = template.HTMLEscapeString(body)
+	body = strings.Replace(body, "\r\n", "</p><p>" , -1)
+	body = strings.Replace(body, "\n", "</p><p>" , -1)
+	body = strings.Replace(body, "<p></p>", "" , -1)
 
 	cn_filename := "entries/" + title + "/comments/num.txt"
 	num_comments, err := ioutil.ReadFile(cn_filename)
@@ -117,19 +127,18 @@ func loadEntry(title string) (*Entry, error) {
 			epoch := dat_arr[4]
 			epoch_i, _ := strconv.ParseInt(epoch, 10, 64)
 			epoch = time.Unix(epoch_i, 0).Format(date_format)
-			comment_src := dat_arr[5]
-			comment_src = template.HTMLEscapeString(comment_src)
-			comment := template.HTML(ParseEmoticons(comment_src))
+			comment := dat_arr[5]
+			comment = template.HTMLEscapeString(comment)
 			face := dat_arr[6]
 			xface := dat_arr[7]
 			md5 := dat_arr[8]
 			favatar := dat_arr[9]
-			c := &Comment{Name: name, Email: email, XFace: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: comment, EmailMD5: md5, Favatar: favatar}
+			c := &Comment{Name: name, Email: email, XFace: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: template.HTML(ParseEmoticons(comment)), EmailMD5: md5, Favatar: favatar}
 			m[i] = c;
 		}
 	}
 
-	return &Entry{Title: title, Body: body, Comments: m}, nil
+	return &Entry{Title: title, Body: template.HTML(ParseEmoticons(body)), Comments: m}, nil
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
@@ -150,6 +159,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 		var entries []string
 		var path = "entries/"
 		files, _ := ioutil.ReadDir("./"+path)
+
 		for _, f := range files {
 			entries = append(entries, f.Name())
 		}
@@ -160,15 +170,15 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 			return
 		}
 	}
+
 	w.Write(output.Bytes())
 }
 
 func editHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadEntry(title)
-	if err != nil {
-		p = &Entry{Title: title}
-	}
 	if title != "" {
+		filename := "entries/" + title + "/" + title + ".txt"
+		b, err := ioutil.ReadFile(filename)
+		p := &Entry{Title: title, Body: template.HTML(b)}
 		err = templates.ExecuteTemplate(w, "edit.html", p)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -177,13 +187,12 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 	} else {
 		http.Redirect(w, r, "/edit/main", http.StatusFound)
 	}
-
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 	if title != "" {
 		body := r.FormValue("body")
-		p := &Entry{Title: title, Body: body}
+		p := &Entry{Title: title, Body: template.HTML(body)}
 		err := p.save()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -210,6 +219,10 @@ func removeHandler(w http.ResponseWriter, r *http.Request, title string) {
 
 // name ip email homepage unixtime comment face xface emailMD5 favatar
 func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
+	if _, err := os.Stat("entries/" + title); os.IsNotExist(err) {
+		http.Redirect(w, r, "/entries/main", http.StatusFound)
+		return
+	}
 	if title != "" {
 		name := r.FormValue("name")
 		// default name
@@ -320,6 +333,8 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 
 		comment := r.FormValue("comment")
 		// convert newlines to separate paragraphs
+		comment = strings.Replace(comment, "<p>", "" , -1)
+		comment = strings.Replace(comment, "</p>", "" , -1)
 		comment = strings.Replace(comment, "\r\n", "</p><p>" , -1)
 		comment = strings.Replace(comment, "\n", "</p><p>" , -1)
 		comment = strings.Replace(comment, "<p></p>", "" , -1)
@@ -371,7 +386,7 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 func removeCommentHandler(w http.ResponseWriter, r *http.Request, title string) {
 	comment_num := r.FormValue("comment_num")
 
-	if(title != "") {
+	if(title != "" && comment_num != "") {
 		p := &Entry{Title: title}
 		err := p.removeComment(comment_num)
 		if err != nil {
@@ -392,6 +407,8 @@ func encodeHandler(w http.ResponseWriter, r *http.Request, title string) {
 			return
 		}
 		json.NewEncoder(w).Encode(p)
+	} else {
+		http.Redirect(w, r, "/entries/main", http.StatusFound)
 	}
 }
 
@@ -404,6 +421,11 @@ func handleFunc (path string, fn func(http.ResponseWriter, *http.Request, string
 		title := r.URL.Path[lenPath:]
 		/*if !titleValidator.MatchString(title) {
 			http.NotFound(w, r)
+			return
+		}*/
+		/*if title == "" {
+			http.Redirect(w, r, "/entries/main", http.StatusFound)
+			fmt.Println("no title!")
 			return
 		}*/
 		fn(w, r, title)
@@ -432,6 +454,9 @@ func main() {
 	http.Handle("/css/", http.StripPrefix("/css/", http.FileServer(http.Dir("css"))))
 	http.Handle("/img/", http.StripPrefix("/img/", http.FileServer(http.Dir("img"))))
 	http.Handle("/face/", http.StripPrefix("/face/", http.FileServer(http.Dir("face"))))
+	http.Handle("/js/", http.StripPrefix("/js/", http.FileServer(http.Dir("js"))))
+	//http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir("files"))))
+	//http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir("D:\\Music\\Conor Oberst"))))
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -617,8 +642,3 @@ s|https[:]\/\/www.youtube.com\/watch\?v=([a-zA-Z0-9_]*)|<object style="width:100
 s|\w+@\w+\.\w+(\.\w+)?|<a href=\"mailto:\0\">\0</a>|g;s/\//\\\//g' $2);  # email mailto
 */
 }
-
-/* gravatar
-http.DetectContentType
-https://github.com/eefret/gravatar/blob/master/gravatar.go
-*/

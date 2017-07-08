@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <head>
 <meta charset="utf-8">
-<base href="http://localhost:8080/">
-<link rel="stylesheet" href="css/style.css">
+<!-- <base href="http://localhost:8080/"> -->
+<base href="http://96.231.189.44:8080/">
+<link rel="stylesheet" href="css/core.css">
+<link rel="stylesheet" href="css/inputs.css">
+<link rel="stylesheet" href="css/buttons.css">
 <title>{{.Title}}</title>
 </head>
 <h1>Editing {{.Title}}</h1>
-
+<p class="byline">[<a href="entries/">entries</a>/<a href="entries/{{ .Title }}">{{ .Title }}</a>/edit]</p>
 <form action="/save/{{.Title}}" method="POST">
 <div><textarea name="body" rows="20" cols="80">{{printf "%s" .Body}}</textarea></div>
 <div><input type="submit" value="Save"></div>
