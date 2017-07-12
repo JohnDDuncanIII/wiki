@@ -21,6 +21,8 @@ import ( // https://gowebexamples.github.io/password-hashing/
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/JohnDDuncanIII/faces"
 )
 
 var date_format = "Monday, January 2 2006 at 3:04pm"
@@ -42,6 +44,7 @@ type Comment struct {
 	Comment template.HTML
 	EmailMD5 string
 	Favatar string
+	Picons []template.HTML
 }
 
 func (p *Entry) save() error {
@@ -133,7 +136,8 @@ func loadEntry(title string) (*Entry, error) {
 			xface := dat_arr[7]
 			md5 := dat_arr[8]
 			favatar := dat_arr[9]
-			c := &Comment{Name: name, Email: email, XFace: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: template.HTML(ParseEmoticons(comment)), EmailMD5: md5, Favatar: favatar}
+			picons := faces.SearchPicons(email)
+			c := &Comment{Name: name, Email: email, XFace: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: template.HTML(ParseEmoticons(comment)), EmailMD5: md5, Favatar: favatar, Picons: picons}
 			m[i] = c;
 		}
 	}
@@ -351,7 +355,7 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 		// see: use cgo to run compface (looking for a better solution)
 		xface := r.FormValue("xface")
 		if xface != "" {
-			xface = doXFace(xface)
+			xface = faces.DoXFace(xface) // xface package call
 		}
 
 		// md5 validation
@@ -460,6 +464,8 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
+var path = ""
+
 // replace emoticon markup with html
 func ParseEmoticons(s string) string {
 	e_path := "<img src=" + path + "img/emoticons/"
@@ -511,74 +517,6 @@ func ParseEmoticons(s string) string {
 	s = strings.Replace(s,"&lt;p&gt;", "<p>", -1)
 
 	return s
-}
-
-var path = ""
-// script that parses through a picon db w/ a given email
-// TODO: move this to faces package
-func (c *Comment) SearchPicons(s string) []template.HTML {
-	var pBox []template.HTML
-	if s == "" {
-		pImg := `<img class="face" src="face/picons/misc/MISC/noface/face.gif" title="noface">`
-		pBox = append(pBox, template.HTML(pImg))
-	} else {
-		atSign := strings.Index(s, "@")
-		mfPiconDatabases := [4]string{"domains/", "users/", "misc", "usenix/"}
-		count := 0
-		// if we have a valid email address
-		if atSign != -1 {
-			host := s[atSign + 1:len(s)]
-			user := s[0:atSign]
-			host_pieces := strings.Split(host, ".")
-
-			pDef := `<img class="face" src="` + path + `face/picons/unknown/` + host_pieces[len(host_pieces)-1] + `/unknown/face.gif" title="` + host_pieces[len(host_pieces)-1] + `">`
-			pBox = append(pBox, template.HTML(pDef))
-
-			for i := range mfPiconDatabases {
-				piconPath := "face/picons/" + mfPiconDatabases[i] // they are stored in $PROFILEPATH$/messagefaces/picons/ by default
-				if mfPiconDatabases[i] == "misc/" {
-					piconPath += "MISC/"
-				} // special case MISC
-
-				// get number of database folders (probably six, but could theoretically change)
-				var l = len(host_pieces)-1
-				// we will check to see if we have a match at EACH depth,
-				//     so keep a cloned version w/o the 'unknown/face.gif' portion
-				for l >= 0 { // loop through however many pieces we have of the host
-					piconPath += host_pieces[l] + "/" // add that portion of the host (ex: 'edu' or 'gettysburg' or 'cs')
-					clonedLocal := piconPath
-					if mfPiconDatabases[i] == "users/" {
-						piconPath += user + "/"
-					} else {
-						piconPath += "unknown/"
-					}
-					piconPath += "face.gif"
-					if _, err := os.Stat(piconPath); err == nil {
-						if count == 0 {
-							pBox[0] = template.HTML(`<img class="face" src="` + path + piconPath + `"`)
-							if strings.Contains(piconPath, "users") {
-								pBox[0] += template.HTML(` title="` + host_pieces[len(host_pieces)-1] + `">`)
-							} else {
-								pBox[0] += template.HTML(` title="` + host_pieces[l] + `">`)
-							}
-						} else {
-							pImg := `<img class="face" src="` + path + piconPath + `"`
-							if strings.Contains(piconPath, "users") {
-								pImg += ` title="` + user + `">`
-							} else {
-								pImg += ` title="` + host_pieces[l] + `">`
-							}
-							pBox = append(pBox, template.HTML(pImg))
-						}
-						count++
-					}
-					piconPath = clonedLocal
-					l--
-				}
-			}
-		}
-	}
-	return pBox
 }
 
 func markdown(in string) {

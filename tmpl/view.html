@@ -34,7 +34,7 @@
 {{- if .EmailMD5 -}}
 <img id="gravatar{{$key}}" class="face"  src="http://www.gravatar.com/avatar/{{ .EmailMD5 }}?size=48&amp;d=404">
 {{- end -}}
-{{- range $k, $picon := .SearchPicons .Email -}}
+{{- range $k, $picon := .Picons -}}
 {{- $picon -}}
 {{- end -}}
 </div>
