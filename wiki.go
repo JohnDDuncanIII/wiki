@@ -105,12 +105,7 @@ func loadEntry(title string) (*Entry, error) {
 	}
 
 	body := string(b)
-	body = strings.Replace(body, "<p>", "" , -1)
-	body = strings.Replace(body, "</p>", "" , -1)
-	body = template.HTMLEscapeString(body)
-	body = strings.Replace(body, "\r\n", "</p><p>" , -1)
-	body = strings.Replace(body, "\n", "</p><p>" , -1)
-	body = strings.Replace(body, "<p></p>", "" , -1)
+	body = breakToPara(body)
 
 	cn_filename := "entries/" + title + "/comments/num.txt"
 	num_comments, err := ioutil.ReadFile(cn_filename)
@@ -130,12 +125,15 @@ func loadEntry(title string) (*Entry, error) {
 			epoch := dat_arr[4]
 			epoch_i, _ := strconv.ParseInt(epoch, 10, 64)
 			epoch = time.Unix(epoch_i, 0).Format(date_format)
-			comment := dat_arr[5]
-			comment = template.HTMLEscapeString(comment)
-			face := dat_arr[6]
-			xface := dat_arr[7]
-			md5 := dat_arr[8]
-			favatar := dat_arr[9]
+			face := dat_arr[5]
+			xface := dat_arr[6]
+			md5 := dat_arr[7]
+			favatar := dat_arr[8]
+			comment := dat_arr[9]
+			for i := 10; i < len(dat_arr); i++ {
+				comment += "\n" + dat_arr[i]
+			}
+			comment = breakToPara(comment)
 			picons := faces.SearchPicons(email)
 			c := &Comment{Name: name, Email: email, XFace: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: template.HTML(ParseEmoticons(comment)), EmailMD5: md5, Favatar: favatar, Picons: picons}
 			m[i] = c;
@@ -336,12 +334,6 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 		epoch := strconv.Itoa(int(time.Now().Unix()))
 
 		comment := r.FormValue("comment")
-		// convert newlines to separate paragraphs
-		comment = strings.Replace(comment, "<p>", "" , -1)
-		comment = strings.Replace(comment, "</p>", "" , -1)
-		comment = strings.Replace(comment, "\r\n", "</p><p>" , -1)
-		comment = strings.Replace(comment, "\n", "</p><p>" , -1)
-		comment = strings.Replace(comment, "<p></p>", "" , -1)
 
 		face := r.FormValue("face")
 		// face (base64 png) validation
@@ -374,7 +366,7 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 			extantMD5 = emailMD5
 		}
 
-		outStr := name + "\n" + ip + "\n" + email + "\n" + homepage + "\n" + epoch + "\n" + comment + "\n" + face + "\n" + xface + "\n" + extantMD5 +  "\n" + favicon
+		outStr := name + "\n" + ip + "\n" + email + "\n" + homepage + "\n" + epoch + "\n" + face + "\n" + xface + "\n" + extantMD5 +  "\n" + favicon + "\n" + comment
 		p := &Entry{Title: title}
 		err = p.saveComment(outStr)
 		if err != nil {
@@ -462,6 +454,17 @@ func main() {
 	//http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir("files"))))
 	//http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir("D:\\Music\\Conor Oberst"))))
 	http.ListenAndServe(":8080", nil)
+}
+
+func breakToPara(s string) string {
+	s = strings.Replace(s, "<p>", "" , -1)
+	s = strings.Replace(s, "</p>", "" , -1)
+	s = template.HTMLEscapeString(s)
+	s = strings.Replace(s, "\r\n", "</p><p>" , -1)
+	s = strings.Replace(s, "\n", "</p><p>" , -1)
+	s = strings.Replace(s, "<p></p>", "" , -1)
+
+	return s
 }
 
 // replace emoticon markup with html
