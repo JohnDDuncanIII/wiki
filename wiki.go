@@ -464,17 +464,15 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
-var path = ""
-
 // replace emoticon markup with html
 func ParseEmoticons(s string) string {
-	e_path := "<img src=" + path + "img/emoticons/"
+	e_path := "<img src=img/emoticons/"
 	s = strings.Replace(s,":angry:",e_path + "angry.gif>",-1)
-	s = strings.Replace(s,">:(",e_path + "angry.gif>",-1)
+	//s = strings.Replace(s,">:(",e_path + "angry.gif>",-1)
 	s = strings.Replace(s,":laugh:",e_path + "laugh.gif>",-1)
 	s = strings.Replace(s,":DD",e_path + "laugh.gif>",-1)
 	s = strings.Replace(s,":yell:",e_path + "yell.gif>",-1)
-	s = strings.Replace(s,">:O",e_path + "yell.gif>",-1)
+	//s = strings.Replace(s,">:O",e_path + "yell.gif>",-1)
 	s = strings.Replace(s,":innocent:",e_path + "innocent.gif>",-1)
 	s = strings.Replace(s,"O:)",e_path + "innocent.gif>",-1)
 	s = strings.Replace(s,":satisfied:",e_path + "satisfied.gif>",-1)
@@ -486,7 +484,7 @@ func ParseEmoticons(s string) string {
 	s = strings.Replace(s,":P",e_path + "tongue.gif>",-1)
 	s = strings.Replace(s,";)",e_path + "wink.gif>",-1)
 	s = strings.Replace(s,":blush:",e_path + "blush.gif>",-1)
-	s = strings.Replace(s,":\")",e_path + "blush.gif>",-1)
+	s = strings.Replace(s,":\\",e_path + "blush.gif>",-1)
 	s = strings.Replace(s,":confused:",e_path + "confused.gif>",-1)
 	s = strings.Replace(s,":S",e_path + "confused.gif>",-1)
 	s = strings.Replace(s,":cool:",e_path + "cool.gif>",-1)
@@ -512,7 +510,6 @@ func ParseEmoticons(s string) string {
 	s = strings.Replace(s,"O_O",e_path + "eek.gif>",-1)
 	s = strings.Replace(s,":kiss:",e_path + "kiss.gif>",-1)
 	s = strings.Replace(s,":*",e_path + "kiss.gif>",-1)
-	//s = strings.Replace(s,"&lt;br&gt;", "<br>", -1)
 	s = strings.Replace(s,"&lt;/p&gt;", "</p>", -1)
 	s = strings.Replace(s,"&lt;p&gt;", "<p>", -1)
 
