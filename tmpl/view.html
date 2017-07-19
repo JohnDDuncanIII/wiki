@@ -1,19 +1,36 @@
 <!DOCTYPE html>
 <head>
 <meta charset="utf-8">
-<!-- <base href="http://localhost:8080/"> -->
-<base href="http://96.231.189.44:8080/">
-<link rel="stylesheet" href="css/core.css">
-<link rel="stylesheet" href="css/entry.css">
-<link rel="stylesheet" href="css/buttons.css">
-<link rel="stylesheet" href="css/inputs.css">
-<link rel="stylesheet" href="css/face.css">
+<link rel="stylesheet" href="/css/core.css">
+<link rel="stylesheet" href="/css/entry.css">
+<link rel="stylesheet" href="/css/buttons.css">
+<link rel="stylesheet" href="/css/inputs.css">
+<link rel="stylesheet" href="/css/face.css">
 <title>{{ .Title }}</title>
 </head>
+<img id="c2" src="/img/wiki.gif">
 <h1 id="header">{{ .Title }}</h1>
-<p class="byline">[<a href="entries/">entries</a>/{{ .Title }}]</p>
+<p class="byline">[<a href="/entries/">entries</a>/{{ .Title }}]</p>
+{{- if .Toc -}}
+<div id="toc"><b>Contents</b> [<a id="toggle" role="button" tabindex="0">hide</a>]
+<ol id="toc_list" class="toc">
+{{ range $key, $value := .Toc -}}
+{{ $innerArray := . }}
+{{- range $k, $v := . }}
+{{ if (eq $k 0) -}}
+<li><a href="/entries/{{ $.Title }}#{{ . }}">{{ $v }}</a></li>
+{{- end -}}
+{{- if (gt $k 0) -}}
+{{- if (eq $k 1) -}}<ol>{{- end -}}
+<li><a href="/entries/{{ $.Title }}#{{ . }}">{{ $v }}</a></li>
+{{- if (eq (plus1 $k) (len $innerArray)) -}}</ol>{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+</ol></div>
+{{ end }}
 <div id="entry">
-<p>{{.Body}}</p>
+<p>{{.Body}}
 <div class="forms">
 <a href="/edit/{{.Title}}"><button>edit</button></a>
 <a href="/remove/{{.Title}}"><button>remove</button></a>
@@ -63,7 +80,7 @@
 
 <hr>
 
-<img class="flourish" src="css/img/gem.gif">
+<img class="flourish" src="/css/img/gem.gif">
 
-<img id="settings" class="settings" src="css/img/settings.gif">
-<script src="js/scroll.js"></script>
+<img id="settings" class="settings" src="/css/img/settings.gif">
+<script src="/js/scroll.js"></script>

@@ -1,3 +1,19 @@
+var toggle = document.getElementById("toggle");
+
+toggle.onclick = toggleToc;
+
+function toggleToc(e) {
+    var list = document.getElementById("toc_list");
+    if(list.style.display != "none") {
+	list.style.display = "none";
+    }
+    else {
+	list.style.display = "block";
+    }
+}
+
+
+
 var save = document.getElementById("bakecookie");
 var names = document.getElementById("name");
 var email = document.getElementById("email");

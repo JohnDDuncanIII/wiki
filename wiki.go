@@ -31,6 +31,7 @@ type Entry struct {
 	Title string
 	Body template.HTML
 	Comments map[int]*Comment
+	Toc [][]string
 }
 
 type Comment struct {
@@ -104,8 +105,40 @@ func loadEntry(title string) (*Entry, error) {
 		return nil, err
 	}
 
+	var toc [][]string
 	body := string(b)
+
+	var re = regexp.MustCompile(`(?m)^\*(.*)`)
+	body = re.ReplaceAllString(body, `%$1`)
+
+	re = regexp.MustCompile(`\'\'\'\'\'(.*?)\'\'\'\'\'`)
+	body = re.ReplaceAllString(body, `***$1***`)
+
+	re = regexp.MustCompile(`\'\'\'(.*?)\'\'\'`)
+	body = re.ReplaceAllString(body, `**$1**`)
+
+	re = regexp.MustCompile(`\'\'(.*?)\'\'`)
+	body = re.ReplaceAllString(body, `*$1*`)
+
+	re = regexp.MustCompile(`<blockquote>(?:\n|\r\n)?((?:.)*)(?:\n|\r\n)?<\/blockquote>`)
+	body = re.ReplaceAllString(body, `> $1`)
+
+	re = regexp.MustCompile(`(?m)^> (.*)`)
+	body = re.ReplaceAllString(body, `$ $1`)
+
+	re = regexp.MustCompile(`<!--.*?-->`)
+	body = re.ReplaceAllString(body, ``)
+
+	body = template.HTMLEscapeString(body)
+
+	body, toc = parseToEntry(body)
 	body = breakToPara(body)
+
+	/*for _, element := range t {
+		if element[1] != "" {
+			toc = append(toc, element[1])
+		}
+	}*/
 
 	cn_filename := "entries/" + title + "/comments/num.txt"
 	num_comments, err := ioutil.ReadFile(cn_filename)
@@ -133,6 +166,7 @@ func loadEntry(title string) (*Entry, error) {
 			for i := 10; i < len(dat_arr); i++ {
 				comment += "\n" + dat_arr[i]
 			}
+			comment = template.HTMLEscapeString(comment)
 			comment = breakToPara(comment)
 			picons := faces.SearchPicons(email)
 			c := &Comment{Name: name, Email: email, XFace: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: template.HTML(ParseEmoticons(comment)), EmailMD5: md5, Favatar: favatar, Picons: picons}
@@ -140,7 +174,7 @@ func loadEntry(title string) (*Entry, error) {
 		}
 	}
 
-	return &Entry{Title: title, Body: template.HTML(ParseEmoticons(body)), Comments: m}, nil
+	return &Entry{Title: title, Body: template.HTML(ParseEmoticons(body)), Comments: m, Toc: toc}, nil
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
@@ -337,9 +371,9 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 
 		face := r.FormValue("face")
 		// face (base64 png) validation
-		_, f_err := base64.StdEncoding.DecodeString(face)
-		if f_err != nil {
-			http.Error(w, f_err.Error() + "\n" + "malformed base64 encoded png face image", http.StatusInternalServerError)
+		_, err = base64.StdEncoding.DecodeString(face)
+		if err != nil {
+			http.Error(w, err.Error() + "\n" + "malformed base64 encoded png face image", http.StatusInternalServerError)
 			return
 		}
 
@@ -350,21 +384,30 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 			xface = faces.DoXFace(xface) // xface package call
 		}
 
-		// md5 validation
-		md5 := md5.Sum([]byte(email))
-		emailMD5 := hex.EncodeToString(md5[:])
-		emailMD5URL := "http://www.gravatar.com/avatar.php?gravatar_id="+emailMD5+"&size=48&d=404"
-		emailRes, _ := http.Get(emailMD5URL)
-		imgBody, imgErr := ioutil.ReadAll(emailRes.Body)
-		emailRes.Body.Close()
-		if imgErr != nil {
-			fmt.Println(imgErr)
-		}
-		imgContent := http.DetectContentType(imgBody)
 		var extantMD5 string
-		if imgContent == "image/jpeg" {
-			extantMD5 = emailMD5
+		// md5 validation
+		if email != "" {
+			md5 := md5.Sum([]byte(email))
+			emailMD5 := hex.EncodeToString(md5[:])
+			emailMD5URL := "http://www.gravatar.com/avatar.php?gravatar_id="+emailMD5+"&size=48&d=404"
+			emailRes, err := http.Get(emailMD5URL)
+			if err != nil {
+				http.Error(w, err.Error() + "\n" + "cannot contact gravatar service", http.StatusInternalServerError)
+			//	return
+			} else {
+				imgBody, err := ioutil.ReadAll(emailRes.Body)
+				if err != nil {
+					http.Error(w, err.Error() + "\n" + "failed to decode gravatar image", http.StatusInternalServerError)
+					return
+				}
+				emailRes.Body.Close()
+				imgContent := http.DetectContentType(imgBody)
+				if imgContent == "image/jpeg" {
+					extantMD5 = emailMD5
+				}
+			}
 		}
+
 
 		outStr := name + "\n" + ip + "\n" + email + "\n" + homepage + "\n" + epoch + "\n" + face + "\n" + xface + "\n" + extantMD5 +  "\n" + favicon + "\n" + comment
 		p := &Entry{Title: title}
@@ -408,7 +451,13 @@ func encodeHandler(w http.ResponseWriter, r *http.Request, title string) {
 	}
 }
 
-var templates = template.Must(template.ParseFiles("tmpl/edit.html", "tmpl/view.html", "tmpl/entries.html"))
+var fns = template.FuncMap{
+	"plus1": func(x int) int {
+		return x + 1
+	},
+}
+
+var templates = template.Must(template.New("tmpls").Funcs(fns).ParseFiles("tmpl/edit.html", "tmpl/view.html", "tmpl/entries.html"))
 var titleValidator = regexp.MustCompile("^[a-zA-Z0-9]+$")
 
 func handleFunc (path string, fn func(http.ResponseWriter, *http.Request, string)) {
@@ -457,19 +506,194 @@ func main() {
 }
 
 func breakToPara(s string) string {
-	s = strings.Replace(s, "<p>", "" , -1)
-	s = strings.Replace(s, "</p>", "" , -1)
-	s = template.HTMLEscapeString(s)
-	s = strings.Replace(s, "\r\n", "</p><p>" , -1)
-	s = strings.Replace(s, "\n", "</p><p>" , -1)
-	s = strings.Replace(s, "<p></p>", "" , -1)
+	var re = regexp.MustCompile(`(?m)^%(.*)`)
+	var ree = regexp.MustCompile(`(?m)^#(.*)`)
+	var reList = regexp.MustCompile(`(?m)^;(.*)`)
+	var reSubList = regexp.MustCompile(`(?m)^:(.*)`)
+
+	s = strings.Replace(s, "\r", "" , -1)
+
+	strArr := strings.Split(s,"\n")
+	counter := 0
+	match := false
+
+	counterOrd := 0
+	matchOrd := false
+
+	counterList := 0
+	matchList := false
+	for i, v := range strArr {
+		if re.MatchString(v) {
+			strArr[i] = re.ReplaceAllString(v, `<li>$1</li>`)
+			if counter == 0 {
+				strArr[i] = "<ul>" + strArr[i]
+			}
+			match = true
+			counter++
+		} else if match == true {
+			strArr[i-1] = strArr[i-1] + "</ul>"
+			match = false
+			counter = 0
+		}
+
+		if ree.MatchString(v) {
+			strArr[i] = ree.ReplaceAllString(v, `<li>$1</li>`)
+			if counterOrd == 0 {
+				strArr[i] = "<ol>" + strArr[i]
+			}
+			matchOrd = true
+			counterOrd++
+		} else if matchOrd == true {
+			strArr[i-1] = strArr[i-1] + "</ol>"
+			matchOrd = false
+			counterOrd = 0
+		}
+
+		if reList.MatchString(v) {
+			var reSingleLine = regexp.MustCompile(`^;([^:]*):(.*)+`)
+			if reSingleLine.MatchString(v) {
+				strArr[i] = reSingleLine.ReplaceAllString(v, `<dl><dt>$1</dt><dd>$2</dd></dl>`)
+			} else {
+				strArr[i] = reList.ReplaceAllString(v, `<dt>$1</dt>`)
+
+
+				if counterList == 0 {
+					strArr[i] = "<dl>" + strArr[i]
+				}
+				matchList = true
+				counterList++
+			}
+		} else if matchList == true && reSubList.MatchString(v) {
+			strArr[i] = reSubList.ReplaceAllString(v, `<dd>$1</dd>`)
+		} else if matchList == true {
+			strArr[i-1] = strArr[i-1] + "</dl>"
+			matchList = false
+			counterList = 0
+		}
+	}
+
+	if(match == true) {
+		strArr[len(strArr)-1] = strArr[len(strArr)-1] + "</ul>"
+	}
+
+	if(matchOrd == true) {
+		strArr[len(strArr)-1] = strArr[len(strArr)-1] + "</ol>"
+	}
+
+	s = strings.Join(strArr, "\n")
+
+	re = regexp.MustCompile(`----`)
+	s = re.ReplaceAllString(s, `<hr>`)
+
+	re = regexp.MustCompile(`(?m)^\$ (.*)`)
+	s = re.ReplaceAllString(s, `<blockquote>$1</blockquote>`)
+
+	re = regexp.MustCompile(`\*\*\*(.*?)\*\*\*`)
+	s = re.ReplaceAllString(s, `<b><i>$1</i></b>`)
+
+	re = regexp.MustCompile(`\*\*(.*?)\*\*`)
+	s = re.ReplaceAllString(s, `<b>$1</b>`)
+
+	re = regexp.MustCompile(`\*(.*?)\*`)
+	s = re.ReplaceAllString(s, `<i>$1</i>`)
+
+	// embed youtube urls
+	re = regexp.MustCompile(`https[:]\/\/www.youtube.com\/watch\?v=([a-zA-Z0-9_]*)`)
+	s = re.ReplaceAllString(s, `<object style="width:100%;height:100%;width:420px;height:315px;float:none;clear:both;margin:2px auto;" data="http://www.youtube.com/embed/$1"></object>`)
+
+	// replace email with mailto
+	re = regexp.MustCompile(`\w+@\w+\.\w+(\.\w+)?`)
+	s = re.ReplaceAllString(s, `<a href="mailto:$0">$0</a>`)
+
+	// markdown force unwrap image
+	re = regexp.MustCompile(`!\[(.*?)\]\((.*?)\)`)
+	s = re.ReplaceAllString(s, `<img src="/img/$2" alt="$1">`)
+
+	re = regexp.MustCompile(`\[\[([^\]\[:]+)\|([^\]\[:]+)\]\]`)
+	s = re.ReplaceAllString(s, `<a href="/entries/$1">$2</a>`)
+
+	urlReg := `(https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=;!]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=;!]*))`
+
+	re = regexp.MustCompile(`\[`+urlReg+`\s([^\]]+)\]`)
+	s = re.ReplaceAllString(s, `<a class="external" href="$1">$4</a>`)
+
+	re = regexp.MustCompile(`\[?`+urlReg+`\]?( |\n)`)
+	s = re.ReplaceAllString(s, `<a class="external" href="$1">$1</a>$4`)
+
+	re = regexp.MustCompile(`(?m)`+urlReg+`$`)
+	s = re.ReplaceAllString(s, `<a class="external" href="$1">$1</a>`)
+
+	re = regexp.MustCompile(`\[([a-z]+)\]\(([a-zA-Z0-9_\/:.-;!]+)\)`)
+	s = re.ReplaceAllString(s, `<a class="external" href="$2">$1</a>`)
+
+	re = regexp.MustCompile(`\[\[(.*?)\]\]`)
+	s = re.ReplaceAllString(s, `<a href="/entries/$1">$1</a>`)
+
+	//re = regexp.MustCompile(`([^"])(https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=;!]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=;!]*))`)
+	//s = re.ReplaceAllString(s, `$1<a class="external" href="$2">$2</a>`)
+
+	s = strings.Replace(s, "\n", "\n<p>" , -1)
+
+	re = regexp.MustCompile(`(?m)^<p>$`)
+	s = re.ReplaceAllString(s, ``)
+
+	re = regexp.MustCompile(`<p>(<h[1-5].*)`)
+	s = re.ReplaceAllString(s, `$1`)
+
+
+	/*
+	words := strings.Fields(s)
+	for i, word := range words {
+		fmt.Println(word)
+		_, err := url.ParseRequestURI(word)
+		if err == nil {
+			fmt.Println(i, " => ", word)
+		}
+	}*/
 
 	return s
 }
 
+func parseToEntry(s string) (string, [][]string) {
+	var h5 = regexp.MustCompile(`=====(.*?)=====`)
+	var h4 = regexp.MustCompile(`====(.*?)====`)
+	var h3 = regexp.MustCompile(`===(.*?)===`)
+	var h2 = regexp.MustCompile(`==(.*?)==`)
+
+	s = h5.ReplaceAllString(s, `<h5 id="$1">$1</h5>`)
+	s = h4.ReplaceAllString(s, `<h4 id="$1">$1</h4>`)
+
+	toc := [][]string{}
+	words := strings.Fields(s)
+	counter := -1
+
+	for i, word := range words {
+		if len(word) > 4 {
+			if word[0:2] == "==" && word[len(word)-2:len(word)] != "==" {
+				for k:=i; word[len(word)-2:len(word)] != "=="; k++ {
+					word += " " + words[k+1]
+				}
+			}
+		}
+		if h3.MatchString(word) {
+			if counter > -1 {
+				toc[counter] = append(toc[counter], h3.FindStringSubmatch(word)[1])
+			}
+		} else if h2.MatchString(word) {
+			toc = append(toc, []string{h2.FindStringSubmatch(word)[1]})
+			counter++
+		}
+	}
+
+	s = h3.ReplaceAllString(s, `<h3 id="$1">$1</h3>`)
+	s = h2.ReplaceAllString(s, `<h2 id="$1">$1</h2>`)
+
+	return s, toc
+}
+
 // replace emoticon markup with html
 func ParseEmoticons(s string) string {
-	e_path := "<img src=img/emoticons/"
+	e_path := "<img src=/img/emoticons/"
 	s = strings.Replace(s,":angry:",e_path + "angry.gif>",-1)
 	//s = strings.Replace(s,">:(",e_path + "angry.gif>",-1)
 	s = strings.Replace(s,":laugh:",e_path + "laugh.gif>",-1)
@@ -575,8 +799,10 @@ raw html
 s/\!\[(.*)\]\((.*)\)/<img src=\2 alt=\1>/g;  # markdown url (force unwrap image)
 s/\[(.*)\]\((.*)\)/<a href=\2>\1<\/a>/g;  # markdown url
 s/\[(.*)\]<([a-zA-Z0-9[:space:]_,]*)>/<abbr title="\2">\1<\/abbr>/g;  # replace []<> <abbr>
-s|[[:space:]](http[:]//[^ ]*[a-zA-Z])[[:space:]]| <a href=\"\1\">\1</a> |g;  # replace urls  html urls
+
+DONE:
 s|https[:]\/\/www.youtube.com\/watch\?v=([a-zA-Z0-9_]*)|<object style="width:100%;height:100%;width:420px;height:315px;float:none;clear:both;margin:2px auto;" data="http:\/\/www.youtube.com\/embed\/\1"><\/object>|g;
+s|[[:space:]](http[:]//[^ ]*[a-zA-Z])[[:space:]]| <a href=\"\1\">\1</a> |g;  # replace urls  html urls
 s|\w+@\w+\.\w+(\.\w+)?|<a href=\"mailto:\0\">\0</a>|g;s/\//\\\//g' $2);  # email mailto
 */
 }

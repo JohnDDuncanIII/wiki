@@ -1,6 +1,8 @@
 html {
     /*background-color: rebeccapurple;*/
     background-color: blue;
+    font-family: tahoma, serif;
+    font-size: 14px;
 }
 
 body {
@@ -41,11 +43,16 @@ div:not(:first-of-type) {
 }
 
 h1 {
-    display: table;
     border-bottom: 1px dotted black;
+    /*display: table;
     margin-left: auto;
-    margin-right: auto;
+    margin-right: auto;*/
 }
+
+h2 {
+    border-bottom: 1px dotted black;
+}
+
 
 hr { border: 1px dotted black; }
 
@@ -54,6 +61,7 @@ hr { border: 1px dotted black; }
     margin-bottom: 5px;
     border-bottom: 1px dotted black;
     display: table;
+    font-size: 12px;
 }
 
 #entries {
@@ -72,7 +80,7 @@ hr { border: 1px dotted black; }
 }
 
 /* disable anti-aliasing */
-img, span  {
+img, span, .external  {
     image-rendering: -webkit-optimize-contrast; /* Chrome (and eventually Safari) */
     image-rendering: pixelated; /* Chrome */
     image-rendering: optimizeSpeed;		/* STOP SMOOTHING, GIVE ME SPEED  */
