@@ -12,6 +12,10 @@ import ( // https://gowebexamples.github.io/password-hashing/
 	"encoding/json"
 	"fmt"
 	"html/template"
+	//"image"
+	//"image/gif"
+	"image/jpeg"
+	"image/png"
 	"io/ioutil"
 	"net/http"
 	"net/mail"
@@ -23,6 +27,10 @@ import ( // https://gowebexamples.github.io/password-hashing/
 	"time"
 
 	"github.com/JohnDDuncanIII/faces"
+	"github.com/unixpickle/resize"
+	//"github.com/nfnt/resize"
+	//"github.com/bamiaux/rez"
+	"github.com/NYTimes/gziphandler"
 )
 
 var date_format = "Monday, January 2 2006 at 3:04pm"
@@ -326,10 +334,6 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 				s := strings.LastIndex(favicon, "/")
 				favicon = favicon[s+1:len(favicon)]
 			}
-
-			//fmt.Println(favicon)
-			//fmt.Println(homepage)
-
 			_, err = url.ParseRequestURI(favicon)
 			if !strings.Contains(favicon, "://") || err != nil {
 				if favicon != "" && !strings.Contains(favicon, "data:image/png;base64,") {
@@ -377,11 +381,25 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 			return
 		}
 
-		// no way to validate xfaces on the back-end (yet)
-		// see: use cgo to run compface (looking for a better solution)
+		// use faces package for X-Face decode
 		xface := r.FormValue("xface")
 		if xface != "" {
 			xface = faces.DoXFace(xface) // xface package call
+
+			unbased, err := base64.StdEncoding.DecodeString(xface)
+			if err != nil {
+				panic("Cannot decode b64")
+			}
+
+			r := bytes.NewReader(unbased)
+			im, err := png.Decode(r)
+			if err != nil {
+				panic(err)
+			}
+
+			buf := new(bytes.Buffer)
+			png.Encode(buf, im)
+			xface = base64.StdEncoding.EncodeToString([]byte(buf.String()))
 		}
 
 		var extantMD5 string
@@ -460,9 +478,30 @@ var fns = template.FuncMap{
 var templates = template.Must(template.New("tmpls").Funcs(fns).ParseFiles("tmpl/edit.html", "tmpl/view.html", "tmpl/entries.html"))
 var titleValidator = regexp.MustCompile("^[a-zA-Z0-9]+$")
 
+// cache control
+var (
+	cacheSince = time.Now().Format(http.TimeFormat)
+	cacheUntil = time.Now().AddDate(60, 0, 0).Format(http.TimeFormat)
+)
+
+// handle specific page types
 func handleFunc (path string, fn func(http.ResponseWriter, *http.Request, string)) {
 	lenPath := len(path)
 	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "max-age:290304000, public")
+		w.Header().Set("Last-Modified", cacheSince)
+		w.Header().Set("Expires", cacheUntil)
+
+		/*key := ""
+		e := `"` + key + `"`
+		w.Header().Set("Etag", e)
+		if match := r.Header.Get("If-None-Match"); match != "" {
+			if strings.Contains(match, e) {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}*/
+
 		title := r.URL.Path[lenPath:]
 		/*if !titleValidator.MatchString(title) {
 			http.NotFound(w, r)
@@ -476,18 +515,15 @@ func handleFunc (path string, fn func(http.ResponseWriter, *http.Request, string
 		fn(w, r, title)
 	}
 
-	http.HandleFunc(path, handler)
-}
-
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/entries/main", http.StatusFound)
+	h := gziphandler.GzipHandler(http.HandlerFunc(handler))
+	http.Handle(path, h)
 }
 
 func main() {
 	// start the server
 	fmt.Println("starting")
 	// dynamic content
-	http.HandleFunc("/", rootHandler)
+	http.Handle("/", gziphandler.GzipHandler(http.HandlerFunc(rootHandler)))
 	handleFunc("/entries/", viewHandler)
 	handleFunc("/edit/", editHandler)
 	handleFunc("/save/", saveHandler)
@@ -496,20 +532,62 @@ func main() {
 	handleFunc("/comment/", commentHandler)
 	handleFunc("/removecomment/", removeCommentHandler)
 	// static content
-	http.Handle("/css/", http.StripPrefix("/css/", http.FileServer(http.Dir("css"))))
-	http.Handle("/img/", http.StripPrefix("/img/", http.FileServer(http.Dir("img"))))
-	http.Handle("/face/", http.StripPrefix("/face/", http.FileServer(http.Dir("face"))))
-	http.Handle("/js/", http.StripPrefix("/js/", http.FileServer(http.Dir("js"))))
+	http.Handle("/css/", gziphandler.GzipHandler(StaticHandler(http.StripPrefix("/css/", http.FileServer(http.Dir("css"))))))
+	http.Handle("/img/", gziphandler.GzipHandler(StaticHandler(http.StripPrefix("/img/", http.FileServer(http.Dir("img"))))))
+	http.Handle("/face/", gziphandler.GzipHandler(StaticHandler(http.StripPrefix("/face/", http.FileServer(http.Dir("face"))))))
+	http.Handle("/js/", gziphandler.GzipHandler(StaticHandler(http.StripPrefix("/js/", http.FileServer(http.Dir("js"))))))
+	http.HandleFunc("/favicon.ico", faviconHandler)
 	//http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir("files"))))
 	//http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir("D:\\Music\\Conor Oberst"))))
 	http.ListenAndServe(":8080", nil)
 }
 
+// basic helper handlers
+
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/entries/main", http.StatusFound)
+}
+
+func faviconHandler(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "img/favicon.ico")
+}
+
+
+func StaticHandler(h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "max-age:290304000, public")
+		w.Header().Set("Last-Modified", cacheSince)
+		w.Header().Set("Expires", cacheUntil)
+		h.ServeHTTP(w, r)
+    }
+
+    return http.HandlerFunc(fn)
+}
+
+// gzip
+// https://play.golang.org/p/80HukFxfs4
+// https://github.com/NYTimes/gziphandler
+
+func getSize(a, b, c int) int {
+	d := a * b / c
+	return (d + 1) & -1
+}
+
+// https://en.wikipedia.org/wiki/Wikipedia:Tutorial/Formatting
+// https://upload.wikimedia.org/wikipedia/commons/b/b3/Wiki_markup_cheatsheet_EN.pdf
+// https://en.wikipedia.org/wiki/Help:Wiki_markup
+// https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
 func breakToPara(s string) string {
-	var re = regexp.MustCompile(`(?m)^%(.*)`)
+	// internal wiki image
+	var re = regexp.MustCompile(`\[\[File:(.*?)\|(thumb(?:nail)?)\|(.*?)\]\]`)
+	s = re.ReplaceAllString(s, `<img class="right" src="/img/$1" alt="$3">`)
+
+	re = regexp.MustCompile(`(?m)^%(.*)`)
 	var ree = regexp.MustCompile(`(?m)^#(.*)`)
 	var reList = regexp.MustCompile(`(?m)^;(.*)`)
 	var reSubList = regexp.MustCompile(`(?m)^:(.*)`)
+
+	var reImgSpace = regexp.MustCompile(`src="\/img\/(.*?)"`)
 
 	s = strings.Replace(s, "\r", "" , -1)
 
@@ -523,6 +601,82 @@ func breakToPara(s string) string {
 	counterList := 0
 	matchList := false
 	for i, v := range strArr {
+		if(reImgSpace.MatchString(v)) {
+			first := v[0:strings.Index(v, "src")]
+			second := reImgSpace.FindString(v)
+			second =  strings.Replace(second, " ", "_", -1)
+			third := v[strings.Index(v, "alt"):]
+			imgFileName := reImgSpace.ReplaceAllString(second, `$1`)
+
+			if _, err := os.Stat("img/"+imgFileName); !os.IsNotExist(err) {
+				// open "test.jpg"
+				file, err := os.Open("img/"+imgFileName)
+				if err != nil {
+					fmt.Println("file does not exist")
+				}
+
+				// decode jpeg into image.Image
+				img, err := jpeg.Decode(file)
+				if err != nil {
+					fmt.Println("file does not exist")
+				}
+
+				file.Close()
+
+				g := img.Bounds().Size()
+
+				srcW := g.X
+				srcH := g.Y
+
+				w, h := 220, getSize(220, g.Y, g.X)
+				if g.X < g.Y {
+					w, h = getSize(220, g.X, g.Y), 220
+				}
+				_, err = os.Stat("img/220px-"+imgFileName[0:strings.Index(imgFileName, ".")]+".jpg");
+				if (g.X > 220) && os.IsNotExist(err) {
+					fmt.Println("resizing")
+					/*src, ok := img.(*image.YCbCr)
+					if !ok {
+						fmt.Println("input picture is not ycbcr")
+					}
+					var resized image.Image
+					resized = image.NewYCbCr(image.Rect(0, 0, w, h), src.SubsampleRatio)
+
+					rez.Convert(resized, img, rez. NewBicubicFilter())
+					//rez.Convert(resized, img, filter{})
+
+					out, err := os.Create("img/220px-"+imgFileName[0:strings.Index(imgFileName, ".")]+".jpg")
+					if err != nil {
+						fmt.Println(err)
+					}
+					defer out.Close()*/
+
+
+					resized := resize.Thumbnail(uint(w), uint(h), img, 2)
+
+					out, err := os.Create("img/220px-"+imgFileName[0:strings.Index(imgFileName, ".")]+".jpg")
+					if err != nil {
+						fmt.Println(err)
+					}
+					defer out.Close()
+
+					// https://meta.wikimedia.org/wiki/Thumbnails
+					// https://www.mediawiki.org/wiki/Manual:Image_administration#Image_thumbnailing
+					// https://golang.org/pkg/image/jpeg/
+					// https://en.wikipedia.org/wiki/Image_scaling
+					// unfortunately, image/jpeg does not support 4:4:4 chroma subsampling, so even a jpeg of quality of 100 will have washed out colors
+					//jpeg.Encode(out, resized, &jpeg.Options{Quality: 100})
+
+					png.Encode(out, resized)
+				}
+				_, err = os.Stat("img/220px-"+imgFileName[0:strings.Index(imgFileName, ".")]+".jpg");
+				if !os.IsNotExist(err) {
+					second = strings.Replace(second, `src="/img/`, `src="/img/220px-`, -1)
+					second = second + ` data-file-width="` + strconv.Itoa(srcW) + `" data-file-height="` + strconv.Itoa(srcH) + `" `
+				}
+			}
+			strArr[i] = `<a href="/img/`+ imgFileName +`">` + first + " " + second + " " + third + "</a>"
+		}
 		if re.MatchString(v) {
 			strArr[i] = re.ReplaceAllString(v, `<li>$1</li>`)
 			if counter == 0 {

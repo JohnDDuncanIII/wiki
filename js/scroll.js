@@ -1,6 +1,8 @@
 var toggle = document.getElementById("toggle");
 
-toggle.onclick = toggleToc;
+if(toggle) {
+    toggle.onclick = toggleToc;
+}
 
 function toggleToc(e) {
     var list = document.getElementById("toc_list");

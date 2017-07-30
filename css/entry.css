@@ -91,7 +91,12 @@ a:hover:not([href]) {
     left: 1px;
     top: 1px;
     margin: 2px;
-    cursor: help;
+    /*cursor: help;*/
+}
+
+.right {
+    clear: right;
+    float: right;
 }
 
 .external {
