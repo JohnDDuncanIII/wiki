@@ -13,6 +13,7 @@ body {
     background-color: white;
     border: 2px solid black;
     text-align: left;
+    max-width: 600px;
 }
 @media only screen and (min-width:700px) {
     body {
@@ -34,7 +35,6 @@ body {
 div {
     border: 3px double black;
     padding: 3px;
-    max-width: 600px;
     display: table;
 }
 
