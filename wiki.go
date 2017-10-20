@@ -29,7 +29,7 @@ import (
 	"github.com/johndduncaniii/faces"
 	"github.com/johndduncaniii/wikidown"
 	"github.com/nytimes/gziphandler"
-
+	//"github.com/russross/blackfriday"
 	//"golang.org/x/crypto/bcrypt"
 )
 
@@ -41,9 +41,12 @@ var fns = template.FuncMap{
 
 var (
 	templates = template.Must(template.New("").Funcs(fns).ParseFiles("tmpl/edit.html", "tmpl/view.html", "tmpl/entries.html"))
-	titleValidator = regexp.MustCompile("^[a-zA-Z0-9]+$")
+	validPath = regexp.MustCompile("^/(entries|edit|save|encode|remove|comment|removecomment)/([a-zA-Z0-9_()]*)$")
 	cacheSince = time.Now().Format(http.TimeFormat)
 	cacheUntil = time.Now().AddDate(60, 0, 0).Format(http.TimeFormat)
+)
+
+const (
 	date_format = "Monday, January 2 2006 at 3:04pm"
 )
 
@@ -108,8 +111,8 @@ func (p *Entry) remove() error {
 	return os.RemoveAll(path)
 }
 
-func (p *Entry) removeComment(cmt_num string) error {
-	path :=	 "entries/" + p.Title + "/comments/" + cmt_num + ".txt"
+func (p *Entry) removeComment(commentNum string) error {
+	path :=	 "entries/" + p.Title + "/comments/" + commentNum + ".txt"
 	return os.Remove(path)
 }
 
@@ -125,37 +128,46 @@ func loadEntry(title string) (*Entry, error) {
 		return nil, err
 	}
 
+	// use wikidown package to convert wiki markup to html
 	body, toc := wikidown.ParseAll(string(b))
 
 	numCommentsPath := "entries/" + title + "/comments/num.txt"
-	readNumComments, err := ioutil.ReadFile(numCommentsPath)
+	readNumComments, _ := ioutil.ReadFile(numCommentsPath)
 	numComments, _ := strconv.Atoi(string(readNumComments))
+
 
 	m := make(map[int]*Comment)
 
 	for i := 0; i <= numComments; i++ {
-		dat, err := ioutil.ReadFile("entries/"+title+"/comments/"+strconv.Itoa(i)+".txt")
+		readComment, err := ioutil.ReadFile("entries/"+title+"/comments/"+strconv.Itoa(i)+".txt")
 		if(err == nil) {
-			dat_arr := strings.Split(string(dat), "\n")
+			commentArray := strings.Split(string(readComment), "\n")
 
-			name := dat_arr[0]
-			ip := dat_arr[1]
-			email := dat_arr[2]
-			homepage := dat_arr[3]
-			epoch := dat_arr[4]
+			name := commentArray[0]
+			ip := commentArray[1]
+			email := commentArray[2]
+			homepage := commentArray[3]
+			epoch := commentArray[4]
 			intEpoch, _ := strconv.ParseInt(epoch, 10, 64)
 			epoch = time.Unix(intEpoch, 0).Format(date_format)
-			face := dat_arr[5]
-			xface := dat_arr[6]
-			md5 := dat_arr[7]
-			favatar := dat_arr[8]
-			comment := dat_arr[9]
-			for i := 10; i < len(dat_arr); i++ {
-				comment += "\n" + dat_arr[i]
+			face := commentArray[5]
+			xface := commentArray[6]
+			md5 := commentArray[7]
+			favatar := commentArray[8]
+			comment := commentArray[9]
+
+			// continue reading comment file until comment is fully read
+			// (array data is stored in a file and separated through newlines)
+			for i := 10; i < len(commentArray); i++ {
+				comment += "\n" + commentArray[i]
 			}
 			comment = template.HTMLEscapeString(comment)
 			comment = wikidown.Parse(comment)
+
+			// search for available personal icon images using the faces package
 			picons := faces.SearchPicons(email)
+
+			// create the comment struct that will be passed as an element of the Entry struct
 			c := &Comment{Name: name, Email: email, XFace: xface, Face: face, Homepage: homepage, Ip: ip, Epoch: epoch, Comment: template.HTML(wikidown.Emoticons(comment)), EmailMD5: md5, Favatar: favatar, Picons: picons}
 			m[i] = c;
 		}
@@ -165,15 +177,13 @@ func loadEntry(title string) (*Entry, error) {
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
-	var output bytes.Buffer
 	if title != "" {
-		//fmt.Println(r.URL.Path[len("/entries/"):])
 		p, err := loadEntry(title)
 		if err != nil {
 			http.Redirect(w, r, "/edit/" + title, http.StatusFound)
 			return
 		}
-		err = templates.ExecuteTemplate(&output, "view.html", p)
+		err = templates.ExecuteTemplate(w, "view.html", p)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -187,14 +197,12 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 			entries = append(entries, f.Name())
 		}
 
-		err := templates.ExecuteTemplate(&output, "entries.html", entries)
+		err := templates.ExecuteTemplate(w, "entries.html", entries)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
-
-	w.Write(output.Bytes())
 }
 
 func editHandler(w http.ResponseWriter, r *http.Request, title string) {
@@ -208,7 +216,7 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 			return
 		}
 	} else {
-		http.Redirect(w, r, "/edit/main", http.StatusFound)
+		http.Error(w, "error: you must provide a wiki page to edit", http.StatusInternalServerError)
 	}
 }
 
@@ -223,7 +231,7 @@ func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 		}
 		http.Redirect(w, r, "/entries/"+title, http.StatusFound)
 	} else {
-		http.Redirect(w, r, "/entries/main", http.StatusFound)
+		http.Error(w, "error: you must provide a wiki page to save", http.StatusInternalServerError)
 	}
 }
 
@@ -235,9 +243,12 @@ func removeHandler(w http.ResponseWriter, r *http.Request, title string) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		http.Redirect(w, r, "/entries/main", http.StatusFound)
+	} else {
+		http.Error(w, "error: you must provide a wiki page to remove", http.StatusInternalServerError)
 	}
 
-	http.Redirect(w, r, "/entries/main", http.StatusFound)
+
 }
 
 // name ip email homepage unixtime comment face xface emailMD5 favatar
@@ -417,23 +428,25 @@ func commentHandler(w http.ResponseWriter, r *http.Request, title string) {
 		}
 		http.Redirect(w, r, "/entries/"+title, http.StatusFound)
 	} else {
-		http.Redirect(w, r, "/entries/main", http.StatusFound)
+		http.Error(w, "error: you must provide a wiki page to add a comment to", http.StatusInternalServerError)
 	}
 }
 
 func removeCommentHandler(w http.ResponseWriter, r *http.Request, title string) {
-	comment_num := r.FormValue("comment_num")
+	commentNum := r.FormValue("commentNum")
 
-	if(title != "" && comment_num != "") {
+	if(title != "" && commentNum != "") {
 		p := &Entry{Title: title}
-		err := p.removeComment(comment_num)
+		err := p.removeComment(commentNum)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		http.Redirect(w, r, "/entries/"+title, http.StatusFound)
+	} else if (title == "") {
+		http.Error(w, "error: you must provide a wiki page to remove a comment from ", http.StatusInternalServerError)
 	} else {
-		http.Redirect(w, r, "/entries/main", http.StatusFound)
+		http.Error(w, "error: you must provide a comment number to delete for the entry " + title, http.StatusInternalServerError)
 	}
 }
 
@@ -446,7 +459,7 @@ func encodeHandler(w http.ResponseWriter, r *http.Request, title string) {
 		}
 		json.NewEncoder(w).Encode(p)
 	} else {
-		http.Redirect(w, r, "/entries/main", http.StatusFound)
+		http.Error(w, "error: you must provide a a wiki page to encode", http.StatusInternalServerError)
 	}
 }
 
@@ -461,43 +474,69 @@ func CheckPasswordHash(password, hash string) bool {
 }*/
 
 func main() {
-	// start the server
-	fmt.Println("starting")
 	/*password := "secret"
 	hash, _ := HashPassword(password) // ignore error for the sake of simplicity
-
 	fmt.Println("Password:", password)
 	fmt.Println("Hash:    ", hash)
-
 	match := CheckPasswordHash(password, hash)
 	fmt.Println("Match:   ", match)*/
+
+	// start the server
+	fmt.Println("starting")
 	// dynamic content
-	http.Handle("/", gziphandler.GzipHandler(http.HandlerFunc(rootHandler)))
-	handleFunc("/entries/", viewHandler)
-	handleFunc("/edit/", editHandler)
-	handleFunc("/save/", saveHandler)
-	handleFunc("/encode/", encodeHandler)
-	handleFunc("/remove/", removeHandler)
-	handleFunc("/comment/", commentHandler)
-	handleFunc("/removecomment/", removeCommentHandler)
+	//http.Handle("/", gzip(http.HandlerFunc(rootHandler)))
+	http.Handle("/entries/", gzip(makeHandler(viewHandler)))
+	http.Handle("/edit/", gzip(makeHandler(editHandler)))
+	http.Handle("/save/",  gzip(makeHandler(saveHandler)))
+	http.Handle("/encode/", gzip(makeHandler(encodeHandler)))
+	http.Handle("/remove/", gzip(makeHandler(removeHandler)))
+	http.Handle("/comment/", gzip(makeHandler(commentHandler)))
+	http.Handle("/removecomment/", gzip(makeHandler(removeCommentHandler)))
 	// static content
-	http.Handle("/css/", gziphandler.GzipHandler(staticHandler(http.StripPrefix("/css/", http.FileServer(http.Dir("css"))))))
-	http.Handle("/img/", gziphandler.GzipHandler(staticHandler(http.StripPrefix("/img/", http.FileServer(http.Dir("img"))))))
-	http.Handle("/face/", gziphandler.GzipHandler(staticHandler(http.StripPrefix("/face/", http.FileServer(http.Dir("face"))))))
-	http.Handle("/js/", gziphandler.GzipHandler(staticHandler(http.StripPrefix("/js/", http.FileServer(http.Dir("js"))))))
+	http.Handle("/css/", gzip(staticHandler(http.StripPrefix("/css/", http.FileServer(http.Dir("css"))))))
+	http.Handle("/img/", gzip(staticHandler(http.StripPrefix("/img/", http.FileServer(http.Dir("img"))))))
+	http.Handle("/face/", gzip(staticHandler(http.StripPrefix("/face/", http.FileServer(http.Dir("face"))))))
+	http.Handle("/js/", gzip(staticHandler(http.StripPrefix("/js/", http.FileServer(http.Dir("js"))))))
 	http.HandleFunc("/favicon.ico", faviconHandler)
 	//http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir("D:\\Music\\"))))
 	http.ListenAndServe(":8080", nil)
 }
 
 // handle specific page types
-func handleFunc (path string, fn func(http.ResponseWriter, *http.Request, string)) {
-	lenPath := len(path)
-	handler := func(w http.ResponseWriter, r *http.Request) {
+func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		m := validPath.FindStringSubmatch(r.URL.Path)
+
+		if m == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		fn(w, r, m[2])
+	}
+}
+
+// basic helper handlers
+/*func rootHandler(w http.ResponseWriter, r *http.Request) {
+	//http.Redirect(w, r, "/entries/", http.StatusFound)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8") // normal header
+	w.WriteHeader(http.StatusOK)
+	io.WriteString(w, `welcome to my golang webzone!`)
+}*/
+
+func faviconHandler(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "img/favicon.ico")
+}
+
+func gzip(h http.Handler) http.Handler {
+	return gziphandler.GzipHandler(h)
+}
+
+func staticHandler(h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "max-age:290304000, public")
 		w.Header().Set("Last-Modified", cacheSince)
 		w.Header().Set("Expires", cacheUntil)
-
 		/*key := ""
 		e := `"` + key + `"`
 		w.Header().Set("Etag", e)
@@ -507,48 +546,11 @@ func handleFunc (path string, fn func(http.ResponseWriter, *http.Request, string
 				return
 			}
 		}*/
-
-		title := r.URL.Path[lenPath:]
-
-		/*if !titleValidator.MatchString(title) {
-			http.NotFound(w, r)
-			return
-		}*/
-		/*if title == "" {
-			http.Redirect(w, r, "/entries/main", http.StatusFound)
-			fmt.Println("no title!")
-			return
-		}*/
-
-		fn(w, r, title)
-	}
-
-	h := gziphandler.GzipHandler(http.HandlerFunc(handler))
-	http.Handle(path, h)
-}
-
-// basic helper handlers
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/entries/main", http.StatusFound)
-}
-
-func faviconHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "img/favicon.ico")
-}
-
-
-func staticHandler(h http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "max-age:290304000, public")
-		w.Header().Set("Last-Modified", cacheSince)
-		w.Header().Set("Expires", cacheUntil)
 		h.ServeHTTP(w, r)
 	}
 
 	return http.HandlerFunc(fn)
 }
-
-
 
 func markdown(in string) {
 /* markdown

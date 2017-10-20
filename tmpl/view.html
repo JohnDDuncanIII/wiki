@@ -58,7 +58,7 @@
 <p class="byline">{{ if .Favatar }}<img id="favatar" src="{{ .Favatar }}"> {{ end }}on {{ $value.Epoch }}, {{ if $value.Homepage }}<a href="{{ $value.Homepage }}" target="_new">{{ $value.Name }}</a>{{ else }}{{ $value.Name }}{{ end }} {{ if $value.Email }}[<a href="mailto://{{ $value.Email }}" rel="nofollow">e-mail</a>]{{ end }} said:</p>{{ if .Comment }}<p>{{ $value.Comment }}</p>{{ end }}
 <div class="forms">
 <form action="/removecomment/{{$.Title}}" method="POST">
-<input type="hidden" name="comment_num" value="{{$key}}">
+<input type="hidden" name="commentNum" value="{{$key}}">
 <input type="submit" value="remove">
 </form></div></div>
 {{ end }}{{ end }}</div>{{ end }}
