@@ -1,0 +1,9 @@
+/* entries.html */
+body#entries {
+	display: table;
+}
+
+#pages {
+	margin-left: auto;
+	margin-right: auto;
+}

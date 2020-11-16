@@ -1,86 +1,195 @@
 <!DOCTYPE html>
-<head>
+
 <meta charset="utf-8">
-<link rel="stylesheet" href="/css/core.css">
-<link rel="stylesheet" href="/css/entry.css">
 <link rel="stylesheet" href="/css/buttons.css">
-<link rel="stylesheet" href="/css/inputs.css">
+<link rel="stylesheet" href="/css/core.css">
 <link rel="stylesheet" href="/css/face.css">
+<link rel="stylesheet" href="/css/inputs.css">
+<link rel="stylesheet" href="/css/view.css">
 <title>{{ .Title }}</title>
-</head>
-<a href="/entries"><img id="c2" src="/img/wiki.gif"></a>
-<h1 id="header">{{ .Title }}</h1>
+
+<a href="/entries">
+	<img id="c2" src="/img/wiki.gif">
+</a>
+
+<h1 id="header">
+	{{ .Title }}
+</h1>
+
 <p class="byline">[<a href="/entries/">entries</a>/{{ .Title }}]</p>
 {{- if .Toc -}}
-<div id="toc"><b>Contents</b> [<a id="toggle" role="button" tabindex="0">hide</a>]
-<ol id="toc_list" class="toc">
-{{ range $key, $value := .Toc -}}
-{{ $innerArray := . }}
-{{- range $k, $v := . }}
-{{ if (eq $k 0) -}}
-<li><a href="/entries/{{ $.Title }}#{{ . }}">{{ $v }}</a></li>
-{{- end -}}
-{{- if (gt $k 0) -}}
-{{- if (eq $k 1) -}}<ol>{{- end -}}
-<li><a href="/entries/{{ $.Title }}#{{ . }}">{{ $v }}</a></li>
-{{- if (eq (plus1 $k) (len $innerArray)) -}}</ol>{{- end -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-</ol></div>
+	<div id="toc"><b>Contents</b> [<a id="toggle" role="button" tabindex="0">hide</a>]
+		<ol
+			id="toc_list"
+			class="toc"
+		>
+			{{ range $key, $value := .Toc -}}
+				{{ $innerArray := . }}
+				{{- range $k, $v := . }}
+					{{ if (eq $k 0) -}}
+						<li><a href="/entries/{{ $.Title }}#{{ . }}">{{ $v }}</a></li>
+					{{- end -}}
+					{{- if (gt $k 0) -}}
+						{{- if (eq $k 1) -}}
+							<ol>
+						{{- end -}}
+						<li>
+							<a href="/entries/{{ $.Title }}#{{ . }}">
+								{{ $v }}
+							</a>
+						</li>
+						{{- if (eq (plus1 $k) (len $innerArray)) -}}
+							</ol>
+						{{- end -}}
+					{{- end -}}
+				{{- end -}}
+			{{- end -}}
+		</ol>
+	</div>
 {{ end }}
+
 <div id="entry">
-<p>{{.Body}}
-<div class="forms">
-<a href="/edit/{{.Title}}"><button>edit</button></a>
-<a href="/remove/{{.Title}}"><button>remove</button></a>
+	<p>
+		{{- .Body -}}
+	</p>
+	<div class="forms">
+		<a href="/edit/{{ .Title }}"><button>edit</button></a>
+		<a href="/remove/{{ .Title }}"><button>remove</button></a>
+	</div>
 </div>
-</div>
+{{ if .Comments }}
+	<div id="comments">
+		{{- range $key, $value := .Comments -}}
+			{{ if $value.Ip }}
+				<div
+					id="comment{{$key}}"
+					class="comment"
+				>
+					<div 
+						id="facesBox{{$key}}"
+						class="facesBox"
+					>
+						{{ if .XFace -}}
+							<img id="xface{{$key}}"
+								class="face"
+								title="face"
+								src="data:image/png;base64,{{ .XFace }}"
+							>
+						{{- end -}}
+						{{- if .Face -}}
+							<img id="face{{$key}}"
+								class="face"
+								title="face"
+								src="data:image/png;base64,{{ .Face }}"
+							>
+						{{- end -}}
+						{{- if .EmailMD5 -}}
+							<img id="gravatar{{$key}}" 
+								class="face"
+								src="http://www.gravatar.com/avatar/{{ .EmailMD5 }}?size=48&amp;d=404"
+							>
+						{{- end -}}
+						{{- range $k, $picon := .Picons -}}
+							{{- $picon -}}
+						{{- end }}
+					</div>
 
-{{ if .Comments -}}
-<div id="comments">{{ range $key, $value := .Comments -}}
-{{ if $value.Ip }}
-<div id="comment{{$key}}" class="comment">
-<div id="facesBox{{$key}}" class="facesBox">
-{{- if .XFace -}}
-<img id="xface{{$key}}" class="face" title="face" src="data:image/png;base64,{{ .XFace }}">
-{{- end -}}
-{{- if .Face -}}
-<img id="face{{$key}}" class="face" title="face" src="data:image/png;base64,{{ .Face }}">
-{{- end -}}
-{{- if .EmailMD5 -}}
-<img id="gravatar{{$key}}" class="face"  src="http://www.gravatar.com/avatar/{{ .EmailMD5 }}?size=48&amp;d=404">
-{{- end -}}
-{{- range $k, $picon := .Picons -}}
-{{- $picon -}}
-{{- end -}}
-</div>
-<p class="byline">{{ if .Favatar }}<img id="favatar" src="{{ .Favatar }}"> {{ end }}on {{ $value.Epoch }}, {{ if $value.Homepage }}<a href="{{ $value.Homepage }}" target="_new">{{ $value.Name }}</a>{{ else }}{{ $value.Name }}{{ end }} {{ if $value.Email }}[<a href="mailto://{{ $value.Email }}" rel="nofollow">e-mail</a>]{{ end }} said:</p>{{ if .Comment }}<p>{{ $value.Comment }}</p>{{ end }}
-<div class="forms">
-<form action="/removecomment/{{$.Title}}" method="POST">
-<input type="hidden" name="commentNum" value="{{$key}}">
-<input type="submit" value="remove">
-</form></div></div>
-{{ end }}{{ end }}</div>{{ end }}
+					<p class="byline">
+						{{- if .Favatar }}
+							<img id="favatar"
+								src="{{- .Favatar -}}"
+							>
+						{{ end -}} 
+						<span>on {{ $value.Epoch }}, </span>
+						{{- if $value.Homepage }}
+							<a
+								href="{{ $value.Homepage }}"
+								target="_new">
+									{{- $value.Name -}}
+							</a>
+						{{- else}} {{- $value.Name -}} {{end -}}
+						{{- if $value.Email -}}
+							<a 
+								href="mailto://{{- $value.Email -}}"
+								rel="nofollow"> [e-mail]</a>
+						{{- end -}}
+						<span> said:</span>
+					</p>
+						{{- if .Comment -}}
+							<p>{{ $value.Comment }}</p>
+						{{- end }}
 
+					<div class="forms">
+						<form
+							action="/removecomment/{{$.Title}}"
+							method="POST"
+						>
+							<input
+								type="hidden"
+								name="commentNum"
+								value="{{$key}}"
+							>
+							<input
+								type="submit"
+								value="remove"
+							>
+						</form>
+					</div>
+				</div>
+			{{- end -}}
+		{{- end }}
+	</div>
+{{ end }}
+
+{{/* Submit a Comment */ -}}
 <div id="comment">
-<form action="/comment/{{ .Title }}" method="POST">
-<input type="text" id="name" name="name" placeholder="Name">
-<input type="text" id="email" name="email" placeholder="Email">
-<input type="text" id="xface" name="xface" placeholder="X-Face">
-<input type="text" id="face" name="face" placeholder="Face">
-<input type="text" id="homepage" name="homepage" placeholder="Homepage">
-<div><textarea name="comment" rows="15" cols="35"></textarea></div>
+	<form action="/comment/{{ .Title }}" method="POST">
+		<input type="text" id="name" name="name" placeholder="Name">
+		<input type="text" id="email" name="email" placeholder="Email">
+		<input type="text" id="xface" name="xface" placeholder="X-Face">
+		<input type="text" id="face" name="face" placeholder="Face">
+		<input type="text" id="homepage" name="homepage" placeholder="Homepage">
+		<div><textarea name="comment" rows="15" cols="40"></textarea></div>
 
-<div class="forms">
-<input id="bakecookie" name="bakecookie" type="checkbox">
-<label for="bakecookie">Save Info? <span></span></label>
-<input type="submit" value="post comment">
-</div></form></div>
+		<div class="forms">
+			<input id="bakecookie" name="bakecookie" type="checkbox">
+			<label for="bakecookie">Save Info? <span></span></label>
+			<input type="submit" value="post comment">
+		</div>
+	</form>
+</div>
 
 <hr>
 
-<img class="flourish" src="/css/img/gem.gif">
+{{/* Bottom Flourish */ -}}
+<img id="flourish" src="/css/img/gem.gif">
 
-<img id="settings" class="settings" src="/css/img/settings.gif">
+{{/* Settings Button */ -}}
+<img id="settings" src="/css/img/settings.gif">
+
+{{/* Settings Overlay */ -}}
+<div id="overlay"></div>
+<div id="popup">
+	<div>
+		<input type="checkbox" id="jsScroll">
+		<label id="jsScrollLabel" for="jsScroll">Show javascript scrollbar
+			<span id="jsScrollSpan"></span>
+		</label>
+	</div>
+
+	<div>
+		<input type="checkbox" id="jsHeader">
+		<label id="jsHeaderLabel" for="jsHeader">Show header
+			<span id="jsHeaderSpan"></span>
+		</label>
+	</div>
+
+	<div>
+		<input type="checkbox" id="jsComments">
+		<label id="jsCommentsLabel" for="jsComments">Show comments
+			<span></span>
+		</label>
+	</div>
+</div>
+
 <script src="/js/scroll.js"></script>

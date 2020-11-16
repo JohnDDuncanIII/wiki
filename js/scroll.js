@@ -1,237 +1,216 @@
-var toggle = document.getElementById("toggle");
-
-if(toggle) {
-    toggle.onclick = toggleToc;
+const toggle = document.getElementById("toggle");
+if (toggle) {
+	toggle.onclick = toggleToc;
 }
-
 function toggleToc(e) {
-    var list = document.getElementById("toc_list");
-    if(list.style.display != "none") {
-	list.style.display = "none";
-    }
-    else {
-	list.style.display = "block";
-    }
+	const listDisplay = document.getElementById("toc_list").style.display;
+
+	if (listDisplay != "none") {
+		listDisplay = "none";
+	} else {
+		listDisplay = "block";
+	}
 }
 
+const save = document.getElementById("bakecookie");
+const names = document.getElementById("name");
+const email = document.getElementById("email");
+const xface = document.getElementById("xface");
+const face = document.getElementById("face");
+const homepage = document.getElementById("homepage");
 
-
-var save = document.getElementById("bakecookie");
-var names = document.getElementById("name");
-var email = document.getElementById("email");
-var xface = document.getElementById("xface");
-var face = document.getElementById("face");
-var homepage = document.getElementById("homepage");
-if(localStorage.getItem('save')) {
-    bakecookie.checked = true;
+if (localStorage.getItem('save')) {
+	bakecookie.checked = true;
 }
 
-if(bakecookie.checked) {
-    if(localStorage.getItem('name') != null) {
-	names.value = localStorage.getItem('name');
-    }
-    if(localStorage.getItem('email') != null) {
-	email.value = localStorage.getItem('email');
-    }
-    if(localStorage.getItem('xface') != null) {
-	xface.value = localStorage.getItem('xface');
-    }
-    if(localStorage.getItem('face') != null) {
-	face.value = localStorage.getItem('face');
-    }
-    if(localStorage.getItem('homepage') != null) {
-	homepage.value = localStorage.getItem('homepage');
-    }
+if (bakecookie.checked) {
+	if (localStorage.getItem('name') != null) {
+		names.value = localStorage.getItem('name');
+	}
+	if (localStorage.getItem('email') != null) {
+		email.value = localStorage.getItem('email');
+	}
+	if (localStorage.getItem('xface') != null) {
+		xface.value = localStorage.getItem('xface');
+	}
+	if (localStorage.getItem('face') != null) {
+		face.value = localStorage.getItem('face');
+	}
+	if (localStorage.getItem('homepage') != null) {
+		homepage.value = localStorage.getItem('homepage');
+	}
 }
 
 bakecookie.onclick = function () {
-    if(bakecookie.checked) {
-	localStorage.setItem('save', true);
-	localStorage.setItem('name', names.value);
-	localStorage.setItem('email', email.value);
-	localStorage.setItem('xface', xface.value);
-	localStorage.setItem('face', face.value);
-	localStorage.setItem('homepage', homepage.value);
-    } else {
-	localStorage.removeItem('save');
-	localStorage.removeItem('name');
-	localStorage.removeItem('email');
-	localStorage.removeItem('xface');
-	localStorage.removeItem('face');
-	localStorage.removeItem('homepage');
-    }
+	if (bakecookie.checked) {
+		localStorage.setItem('save', true);
+		localStorage.setItem('name', names.value);
+		localStorage.setItem('email', email.value);
+		localStorage.setItem('xface', xface.value);
+		localStorage.setItem('face', face.value);
+		localStorage.setItem('homepage', homepage.value);
+	} else {
+		localStorage.removeItem('save');
+		localStorage.removeItem('name');
+		localStorage.removeItem('email');
+		localStorage.removeItem('xface');
+		localStorage.removeItem('face');
+		localStorage.removeItem('homepage');
+	}
 }
 
+const img = document.getElementById("settings");
+const overlay = document.getElementById("overlay");
+const popupBox = document.getElementById("popup");
 
-var img = document.getElementById("settings");
-var overlay = document.createElement("div");
-overlay.id = "overlay";
+const jsScroll = document.getElementById("jsScroll");
+const jsHeader = document.getElementById("jsHeader");
 
-var popupBox = document.createElement("div");
-popupBox.style = "border: 1px solid; padding: 1em; background-color: aliceblue; max-width: 24em; position: fixed; top: 50px; left: 50%; transform: translateX(-50%);";
-var br = document.createElement('br');
-var jsScroll = document.createElement('input');
-jsScroll.type = "checkbox";
-jsScroll.id = "jsScroll";
-var label = document.createElement('label')
-label.htmlFor = "jsScroll";
-label.appendChild(document.createTextNode('Show javascript scrollbar'));
-var span = document.createElement("span");
-span.style = "float: left";
-popupBox.appendChild(jsScroll);
-popupBox.appendChild(label);
-label.appendChild(span);
-popupBox.appendChild(br);
+const comments = document.getElementById("comments");
+const submit = document.getElementById("comment");
+if (comments) {
+	const jsComments = document.getElementById("jsComments");
 
-
-var br = document.createElement('br');
-var jsHeader = document.createElement('input');
-jsHeader.type = "checkbox";
-jsHeader.id = "jsHeader";
-var label = document.createElement('label')
-label.htmlFor = "jsHeader";
-label.appendChild(document.createTextNode('Show header'));
-var span = document.createElement("span");
-span.style = "float: left";
-popupBox.appendChild(jsHeader);
-popupBox.appendChild(label);
-label.appendChild(span);
-popupBox.appendChild(br);
-var comments = document.getElementById("comments");
-var submit = document.getElementById("comment");
-
-if(comments){
-    var jsComments = document.createElement('input');
-    jsComments.type = "checkbox";
-    jsComments.id = "jsComments";
-    var label = document.createElement('label')
-    label.htmlFor = "jsComments";
-    label.appendChild(document.createTextNode('Show comments'));
-    var span = document.createElement("span");
-    span.style = "float: left";
-    popupBox.appendChild(jsComments);
-    popupBox.appendChild(label);
-    label.appendChild(span);
-    jsComments.checked = (localStorage.getItem('comments') == 'true');
-    jsComments.onclick = function () {
-	if(jsComments.checked) {
-	    localStorage.setItem('comments', true);
-	    comments.style.display = "block";
-	    submit.style.display = "block";
+	jsComments.checked = (localStorage.getItem('comments') == 'true');
+	jsComments.onclick = function () {
+		if (jsComments.checked) {
+			localStorage.setItem('comments', true);
+			comments.style.display = "block";
+			submit.style.display = "block";
+		} else {
+			localStorage.setItem('comments', false);
+			comments.style.display = "none";
+			submit.style.display = "none";
+		}
 	}
-	else {
-	    localStorage.setItem('comments', false);
-	    comments.style.display = "none";
-	    submit.style.display = "none";
+	if (!jsComments.checked) {
+		comments.style.display = "none";
+		submit.style.display = "none";
 	}
-    }
-    if(!jsComments.checked) {
-	comments.style.display = "none";
-	submit.style.display = "none";
-    }
 }
 
 jsScroll.checked = (localStorage.getItem('scrollbar') == 'true');
 jsHeader.checked = (localStorage.getItem('header') == 'true');
+
+const body = document.body;
+
+const header = document.getElementById("header");
+const headerDisplay = header.style.display;
+
+const c2 = document.getElementById("c2");
+const c2Display = header.style.display;
+
 var distToTop = 0;
 
-var frame = document.body;
-var frameDisplay = frame.style.display;
-var frameWidth = frame.style.width;
-
-var header = document.getElementById("header");
-var headerDisplay = header.style.display;
-if(!jsHeader.checked) {
-    header.style.display = "none";
-}
-
-jsHeader.onclick = function () {
-    if(jsHeader.checked) {
-	localStorage.setItem('header', true);
-	header.style.display = headerDisplay;
-    }
-    else {
-	localStorage.setItem('header', false);
+if (!jsHeader.checked) {
 	header.style.display = "none";
-    }
-    calcDistToTop();
+	c2.style.display = "none"
 }
-
-
+jsHeader.onclick = function () {
+	if (jsHeader.checked) {
+		localStorage.setItem('header', true);
+		header.style.display = headerDisplay;
+		c2.style.display = c2Display;
+	}
+	else {
+		localStorage.setItem('header', false);
+		header.style.display = "none";
+		c2.style.display = "none";
+	}
+	calcDistToTop();
+}
 jsScroll.onclick = function () {
-    if(jsScroll.checked) {
-	var scrollEle = document.getElementById("scrollbar");
-	if(scrollEle) { scrollEle.style.display = "block"; }
-	else { createScrollbar(); }
-	localStorage.setItem('scrollbar', true);
-    }
-    else {
-	var scrollEle = document.getElementById("scrollbar");
-	if(scrollEle) { scrollEle.style.display = "none"; }
-	localStorage.setItem('scrollbar', false);
-    }
+	if (jsScroll.checked) {
+		const scrollEle = document.getElementById("scrollbar");
+
+		if (scrollEle) {
+			scrollEle.style.display = "block";
+		} else {
+			createScrollbar();
+		}
+
+		localStorage.setItem('scrollbar', true);
+	} else {
+		const scrollEle = document.getElementById("scrollbar");
+		if (scrollEle) {
+			scrollEle.style.display = "none";
+		}
+		localStorage.setItem('scrollbar', false);
+	}
 }
 
-var isDimmed = false;
+let isDimmed = false;
 img.onclick = function() {
-    if(isDimmed) {
-	document.documentElement.removeChild(overlay);
-	document.documentElement.removeChild(popupBox);
-    }
-    else {
-	document.documentElement.appendChild(overlay);
-	document.documentElement.appendChild(popupBox);
-    }
-    isDimmed = !isDimmed;
+	if (isDimmed) {
+		body.removeChild(overlay);
+		body.removeChild(popupBox);
+	}
+	else {
+		body.appendChild(overlay);
+		overlay.style.display = "block"
+		body.appendChild(popupBox);
+		popupBox.style.display = "block"
+
+	}
+	isDimmed = !isDimmed;
 }
 overlay.onclick =  function() {
-    if(isDimmed) {
-	document.documentElement.removeChild(overlay);
-	document.documentElement.removeChild(popupBox);
-    }
-    else {
-	document.documentElement.appendChild(overlay);
-	document.documentElement.appendChild(popupBox);
-    }
-    isDimmed = !isDimmed;
+	if (isDimmed) {
+		body.removeChild(overlay);
+		body.removeChild(popupBox);
+	}
+	else {
+		body.appendChild(overlay);
+		body.appendChild(popupBox);
+	}
+	isDimmed = !isDimmed;
 }
 
-if(jsScroll.checked) {
-    createScrollbar();
+if (jsScroll.checked) {
+	createScrollbar();
 }
-
 
 function createScrollbar () {
-    var post = document.getElementById("entry");
-    var postHeight = post.offsetHeight;
-    //for (var i=0; i<post.length; i++) { postHeight += post[i].offsetHeight; }
-    var scrollEle = document.createElement("div");
-    scrollEle.id="scrollbar";
-    //scrollEle.style+="-webkit-transition: width 25ms linear; -moz-transition: width 25ms linear; -o-transition: width 25ms linear; transition: width 25ms linear;"
-    document.documentElement.insertBefore(scrollEle, document.body);
-    calcDistToTop();
-    document.body.onscroll = function() {
-	var startNum = document.documentElement.scrollTop - distToTop;
-	var numbers = [startNum, postHeight], ratio = Math.max.apply(Math, numbers) / 100, l = numbers.length, i;
-	for (i = 0; i < l; i++) { numbers[i] = Math.round(numbers[i] / ratio); }
-	if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight) { scrollEle.style.width="100%"; }
-	else if(numbers[0] > 0) { scrollEle.style.width=numbers[0]+"%";}
-	else { scrollEle.style.width="0%"; }
-    }
+	const post = document.getElementById("entry");
+	const postHeight = post.offsetHeight;
+	const scrollEle = document.createElement("div");
+	scrollEle.id="scrollbar";
+	document.documentElement.insertBefore(scrollEle, body);
+
+	calcDistToTop();
+
+	body.onscroll = function() {
+		const startNum = document.documentElement.scrollTop - distToTop;
+		const numbers = [startNum, postHeight]
+		const ratio = Math.max.apply(Math, numbers) / 100
+		const l = numbers.length
+		for (let i = 0; i < l; i++) { 
+			numbers[i] = Math.round(numbers[i] / ratio); 
+		}
+		if ((window.innerHeight + window.scrollY) >= body.offsetHeight) {
+			scrollEle.style.width="100%";
+		} else if (numbers[0] > 0) {
+			scrollEle.style.width=numbers[0]+"%";
+		} else { scrollEle.style.width="0%"; }
+	}
 }
 
 function calcDistToTop() {
-    distToTop = 0;
-    var postBegin = document.getElementById("entry");
-    while (postBegin != document.documentElement) {
-	if(postBegin.style.display != "none") {
-            distToTop += postBegin.offsetTop;
-	}
-	postBegin = postBegin.parentNode;
-    }
+	distToTop = 0;
+	var postBegin = document.getElementById("entry");
 
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=255754
-    if (typeof InstallTrigger !== 'undefined' && getComputedStyle(document.body,null).getPropertyValue('border-top-width')) {
-	distToTop += parseInt(getComputedStyle(document.body,null).getPropertyValue('border-top-width'), 10);
-    }
+	while (postBegin != document.documentElement) {
+		if (postBegin.style.display != "none") {
+			distToTop += postBegin.offsetTop;
+		}
+		postBegin = postBegin.parentNode;
+	}
+
+	// https://bugzilla.mozilla.org/show_bug.cgi?id=255754
+	if (
+		typeof InstallTrigger !== 'undefined' && 
+		getComputedStyle(body, null).getPropertyValue('border-top-width')
+	) {
+		distToTop += parseInt(getComputedStyle(body, null).getPropertyValue('border-top-width'), 10);
+	}
 }
